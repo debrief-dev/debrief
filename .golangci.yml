@@ -1,0 +1,176 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(history)
+    gofumpt:
+      module-path: history
+
+linters:
+  enable:
+    # Check whether the function uses a non-inherited context.
+    - contextcheck
+
+    # Check for two durations multiplied together.
+    - durationcheck
+
+    # Forces to not skip error check.
+    - errcheck 
+
+    # Checks `Err-` prefix for var and `-Error` suffix for error type.
+    - errname
+    
+    # Suggests to use `%w` for error-wrapping.
+    - errorlint
+
+    - gocritic
+
+    # Allow or ban replace directives in go.mod
+    # or force explanation for retract directives.
+    - gomoddirectives
+
+    # Both require a bit more explicit returns.
+    - nilerr
+    - nilnil
+
+    # Finds shadowing of Go's predeclared identifiers.
+    - predeclared
+
+    # Check for two durations multiplied together
+    - durationcheck
+
+    # Checks that package variables are not reassigned.
+    # Super rare case but can catch bad things (like `io.EOF = nil`)
+    - reassign
+
+    # Drop-in replacement of `golint`.
+    - revive
+
+    # I have found that it's not the same as staticcheck binary :\
+    - staticcheck
+
+    # Check struct tags.
+    - tagliatelle
+
+    - govet
+
+    # Remove unnecessary type conversions, make code cleaner
+    - unconvert
+
+    # Might be noisy but better to know what is unused
+    - unparam
+
+    # Detect the possibility to use variables/constants from stdlib.
+    - usestdlibvars
+
+    # Finds wasted assignment statements.
+    - wastedassign
+
+    - gosec
+
+    # Detects duplicate fragments of code
+    - dupl
+
+    # Finds commonly misspelled English words
+    - misspell
+
+    # Forbids identifiers by regex
+    - forbidigo
+
+    # Reports uses of functions with replacement inside the testing package.
+    - usetesting
+
+    # Detects usage of FIXME, TODO and other keywords inside comments
+    - godox
+
+    # Detect the incorrect use of interfaces
+    - iface
+
+    # suggests use of alternative functions/methods in order to gain performance boosts by avoiding unnecessary []byte/string conversion calls
+    - mirror
+
+    # Checks for misuse of Sprintf to construct a host with port in a URL
+    - nosprintfhostport
+
+    # Checks that fmt.Sprintf can be replaced with a faster alternative
+    - perfsprint
+
+    # Detects function and method with missing usage of context.Context
+    - noctx
+
+    # Check that struct tags are well aligned
+    - tagalign
+
+    # Checks usage of github.com/stretchr/testify
+    - testifylint
+
+    # Whitespace is a linter that checks for unnecessary newlines at the start and end of functions, if, for, etc
+    - whitespace
+
+    # Checks that errors returned from external packages are wrapped
+    - wrapcheck
+
+    # Add or remove empty lines
+    - wsl_v5
+
+    # Checks assignments with too many blank identifiers (e.g. x, _, _, _, := f())
+    - dogsled
+    
+    # Must have. Finds unused declarations
+    - unused
+    
+    - ineffassign
+
+    - gochecknoinits
+
+    - nakedret
+
+    - prealloc
+
+    - copyloopvar
+
+    - mnd
+
+    - goconst
+  settings:
+    dupl:
+      threshold: 50
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    lll:
+      line-length: 140
+    revive:
+      rules:
+      - name: package-comments
+        severity: warning
+        disabled: true
+    forbidigo:
+      forbid:
+        # Built-in bootstrapping functions.
+        - pattern: ^print(ln)?$
+        - pattern: ^fmt\.Print.*$
+          msg: Do not commit print statements.
+    godox:
+      # Report any comments starting with keywords, this is useful for TODO or FIXME comments that
+      # might be left in the code accidentally and should be resolved before merging.
+      # Default: ["TODO", "BUG", "FIXME"]
+      keywords:
+        - TODO
+        - OPTIMIZE # marks code that should be optimized before merging
+        - HACK # marks hack-around that should be removed before merging
+        - BUG
+        - FIXME
+
