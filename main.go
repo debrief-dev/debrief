@@ -19,8 +19,6 @@ import (
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/getlantern/golog"
-
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/config"
 	"github.com/debrief-dev/debrief/font"
@@ -31,6 +29,7 @@ import (
 	"github.com/debrief-dev/debrief/ui"
 	"github.com/debrief-dev/debrief/version"
 	"github.com/debrief-dev/debrief/window"
+	"github.com/getlantern/golog"
 )
 
 // Window lifecycle coordination channels

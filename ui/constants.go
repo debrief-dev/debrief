@@ -2,7 +2,6 @@ package ui
 
 import (
 	"gioui.org/unit"
-
 	"github.com/debrief-dev/debrief/config"
 	"github.com/debrief-dev/debrief/hotkey"
 	"github.com/debrief-dev/debrief/model"
@@ -34,6 +33,7 @@ var hints = func() [4]string {
 	if config.IsMacOS() {
 		mod = hotkey.Cmd
 	}
+
 	return [4]string{
 		model.TabCommands:    "↑↓ to navigate · " + mod + "+↓ to last · Enter to copy",
 		model.TabTree:        "↑↓ to navigate · " + mod + "+↑↓ prev/next branch · Enter to copy",
@@ -68,6 +68,7 @@ var tabShortcutHints = func() [4]string {
 	if config.IsMacOS() {
 		prefix = hotkey.Cmd
 	}
+
 	return [4]string{
 		model.TabCommands:    prefix + "+1",
 		model.TabTree:        prefix + "+2",

@@ -176,7 +176,7 @@ static void x11_activate_window(unsigned long wid) {
 import "C"
 
 import (
-	"fmt"
+	"errors"
 	"log"
 	"os"
 	"unsafe"
@@ -197,7 +197,13 @@ var x11Available bool
 // isWaylandSession is true when the current session is a Wayland session.
 var isWaylandSession bool
 
-func init() {
+// IsWaylandSession reports whether the current session is Wayland.
+func IsWaylandSession() bool {
+	return isWaylandSession
+}
+
+// initPlatformController initializes X11 display and detects Wayland session.
+func initPlatformController(_ *Controller) {
 	x11Available = C.x11_init() != 0
 	if x11Available {
 		log.Println("Window: X11 display connection opened for window control")
@@ -214,14 +220,6 @@ func init() {
 	}
 }
 
-// IsWaylandSession reports whether the current session is Wayland.
-func IsWaylandSession() bool {
-	return isWaylandSession
-}
-
-// initPlatformController is a no-op on Linux.
-func initPlatformController(_ *Controller) {}
-
 // hideWindow minimizes the window.
 // On Wayland, closes the window instead of minimizing because Wayland has
 // no protocol for un-minimizing. The main loop recreates the window on show.
@@ -230,7 +228,7 @@ func initPlatformController(_ *Controller) {}
 func (c *Controller) hideWindow() error {
 	if isWaylandSession {
 		if c.win == nil {
-			return fmt.Errorf("window reference is nil")
+			return errors.New("window reference is nil")
 		}
 
 		// xdg_toplevel has set_minimized but no unset_minimized.
@@ -254,7 +252,7 @@ func (c *Controller) hideWindow() error {
 	}
 
 	if c.win == nil {
-		return fmt.Errorf("window reference is nil")
+		return errors.New("window reference is nil")
 	}
 
 	c.win.Option(app.Minimized.Option())
@@ -286,7 +284,7 @@ func (c *Controller) showWindow() error {
 	}
 
 	if c.win == nil {
-		return fmt.Errorf("window reference is nil")
+		return errors.New("window reference is nil")
 	}
 
 	c.win.Option(app.Windowed.Option())

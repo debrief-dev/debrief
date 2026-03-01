@@ -10,7 +10,6 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget/material"
-
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/hotkey"
 )

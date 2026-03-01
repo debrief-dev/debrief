@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"gioui.org/io/key"
-
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/model"
 )
