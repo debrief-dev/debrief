@@ -1,0 +1,152 @@
+TAG_NAME?=$(shell git describe --tags --abbrev=0)
+APP_NAME="Debrief"
+APP_NAME_LOWERCASE="debrief"
+
+.PHONY: build_macos_app
+build_macos_app:
+	@echo "Building macOS..."
+	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/${APP_NAME}.app .
+	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/${APP_NAME}.app .
+	codesign --force --deep --sign - ./dist/amd64/${APP_NAME}.app
+	codesign --force --deep --sign - ./dist/arm64/${APP_NAME}.app
+
+.PHONY: build_macos_dmg
+build_macos_dmg:
+	@echo "Building macOS DMG..."
+	rm -rf ./dist/${APP_NAME_LOWERCASE}-macos-$(TAG_NAME)-amd64.dmg
+	rm -rf ./dist/${APP_NAME_LOWERCASE}-macos-$(TAG_NAME)-arm64.dmg
+	create-dmg \
+	  --volname "${APP_NAME} Installer" \
+	  --volicon "./assets/appicon.icns" \
+	  --background "./assets/${APP_NAME_LOWERCASE}-installer-bk.png" \
+	  --window-pos 300 300 \
+	  --window-size 500 350 \
+	  --icon-size 100 \
+	  --icon "${APP_NAME}.app" 125 150 \
+	  --hide-extension "${APP_NAME}.app" \
+	  --app-drop-link 375 150 \
+	  "./dist/${APP_NAME_LOWERCASE}-macos-$(TAG_NAME)-arm64.dmg" \
+	  "./dist/arm64/${APP_NAME}.app"
+
+	create-dmg \
+	  --volname "${APP_NAME} Installer" \
+	  --volicon "./assets/appicon.icns" \
+	  --background "./assets/${APP_NAME_LOWERCASE}-installer-bk.png" \
+	  --window-pos 300 300 \
+	  --window-size 500 350 \
+	  --icon-size 100 \
+	  --icon "${APP_NAME}.app" 125 150 \
+	  --hide-extension "${APP_NAME}.app" \
+	  --app-drop-link 375 150 \
+	  "./dist/${APP_NAME_LOWERCASE}-macos-$(TAG_NAME)-amd64.dmg" \
+	  "./dist/amd64/${APP_NAME}.app"
+
+.PHONY: build_macos_signed
+build_macos_signed:
+	@echo "Building and signing macOS app..."
+	@if [ -z "$(APPLE_TEAM_ID)" ]; then \
+		echo "ERROR: APPLE_TEAM_ID environment variable is not set"; \
+		exit 1; \
+	fi
+	@if [ -z "$(IDENTITY)" ]; then \
+		echo "ERROR: IDENTITY environment variable is not set (e.g., 'Developer ID Application: Your Name (TEAMID)')"; \
+		exit 1; \
+	fi
+
+	# Build apps
+	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/${APP_NAME}.app .
+	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/${APP_NAME}.app .
+
+	# Sign apps with Developer ID
+	codesign --force --options runtime --deep -vvv --sign "$(IDENTITY)" ./dist/amd64/${APP_NAME}.app
+	codesign --force --options runtime --deep --sign "$(IDENTITY)" ./dist/arm64/${APP_NAME}.app
+
+	# Verify signing
+	codesign -dvv ./dist/amd64/${APP_NAME}.app
+	codesign -dvv ./dist/arm64/${APP_NAME}.app
+
+	@echo "Apps built and signed. To notarize, run:"
+	@echo "  ditto -c -k --keepParent ./dist/amd64/${APP_NAME}.app ./dist/${APP_NAME}-amd64.zip"
+	@echo "  xcrun notarytool submit ./dist/${APP_NAME}-amd64.zip --apple-id \"\$$APPLE_ID\" --password \"\$$APPLE_APP_SPECIFIC_PASSWORD\" --team-id \"\$$APPLE_TEAM_ID\" --wait"
+	@echo "  xcrun stapler staple ./dist/amd64/${APP_NAME}.app"
+
+	@echo "Then create DMG with 'make build_macos_dmg'"
+
+.PHONY: notarize_macos
+notarize_macos:
+	@echo "Notarizing macOS apps..."
+	@if [ -z "$(APPLE_ID)" ] || [ -z "$(APPLE_TEAM_ID)" ] || [ -z "$(APPLE_APP_SPECIFIC_PASSWORD)" ]; then \
+		echo "ERROR: One or more required environment variables are not set:"; \
+		echo "  - APPLE_ID"; \
+		echo "  - APPLE_TEAM_ID"; \
+		echo "  - APPLE_APP_SPECIFIC_PASSWORD"; \
+		exit 1; \
+	fi
+
+	# Create zip archives for notarization
+	ditto -c -k --keepParent ./dist/amd64/${APP_NAME}.app ./dist/${APP_NAME}-amd64.zip
+	ditto -c -k --keepParent ./dist/arm64/${APP_NAME}.app ./dist/${APP_NAME}-arm64.zip
+
+	# Submit for notarization
+	xcrun notarytool submit ./dist/${APP_NAME}-amd64.zip --apple-id "$(APPLE_ID)" --password "$(APPLE_APP_SPECIFIC_PASSWORD)" --team-id "$(APPLE_TEAM_ID)" --wait
+	xcrun notarytool submit ./dist/${APP_NAME}-arm64.zip --apple-id "$(APPLE_ID)" --password "$(APPLE_APP_SPECIFIC_PASSWORD)" --team-id "$(APPLE_TEAM_ID)" --wait
+
+	@echo "Notarization complete. Now run 'make build_macos_dmg' to create DMG files."
+
+.PHONY: build_appstore
+build_appstore:
+	@echo "Building for App Store..."
+	@if [ -z "$(APPLE_TEAM_ID)" ]; then \
+		echo "ERROR: APPLE_TEAM_ID environment variable is not set"; \
+		exit 1; \
+	fi
+	@if [ -z "$(TAG_NAME)" ]; then \
+		echo "ERROR: TAG_NAME environment variable is not set"; \
+		exit 1; \
+	fi
+
+	./assets/build_appstore.sh $(TAG_NAME)
+
+
+.PHONY: upload_appstore
+upload_appstore:
+	@echo "Uploading to App Store Connect..."
+	@if [ -z "$(APPLE_ID)" ] || [ -z "$(APPLE_APP_SPECIFIC_PASSWORD)" ] || [ -z "$(TAG_NAME)" ]; then \
+		echo "ERROR: One or more required environment variables are not set:"; \
+		echo "  - APPLE_ID"; \
+		echo "  - APPLE_APP_SPECIFIC_PASSWORD"; \
+		echo "  - TAG_NAME"; \
+		exit 1; \
+	fi
+
+	xcrun altool --upload-app -f ./dist/${APP_NAME}-$(TAG_NAME).pkg -t macos -u "$(APPLE_ID)" -p "$(APPLE_APP_SPECIFIC_PASSWORD)" --verbose
+
+
+.PHONY: build_windows
+build_windows:
+	@echo "Building Windows..."
+	rm -f *.syso
+	cp assets/appicon.png .
+	gogio -ldflags="-X version.AppVersion=${TAG_NAME}" -target=windows -arch=amd64 -o "dist/amd64/${APP_NAME}.exe" .
+	gogio -ldflags="-X version.AppVersion=${TAG_NAME}" -target=windows -arch=arm64 -o "dist/arm64/${APP_NAME}.exe" .
+	rm -f *.syso
+
+.PHONY: build_linux
+build_linux:
+	@echo "Building Linux amd64..."
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-X version.AppVersion=$(TAG_NAME)" -o ./dist/amd64/${APP_NAME_LOWERCASE} .
+	cp ./assets/install_linux.sh ./dist/amd64
+	cp ./assets/appicon.png ./dist/amd64
+	cp ./LICENSE ./dist/amd64
+	cp -r ./assets/desktop-assets ./dist/amd64
+	tar -cJf ./dist/${APP_NAME_LOWERCASE}-linux-$(TAG_NAME)-amd64.tar.xz --directory=./dist/amd64 ${APP_NAME_LOWERCASE} desktop-assets install_linux.sh appicon.png ./LICENSE
+	rm -rf ./dist/amd64
+
+.PHONY: run
+run:
+	@echo "Running..."
+	go run .
+
+.PHONY: install_deps
+install_deps:
+	go install gioui.org/cmd/gogio@latest
