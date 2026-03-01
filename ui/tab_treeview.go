@@ -14,10 +14,9 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"golang.org/x/exp/shiny/materialdesign/icons"
-
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/model"
+	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
 // treeNavigationResult holds the result of a tree navigation search

@@ -3,6 +3,7 @@
 package hotkey
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -15,14 +16,16 @@ import (
 
 // D-Bus portal constants
 const (
-	portalDest       = "org.freedesktop.portal.Desktop"
-	portalPath       = "/org/freedesktop/portal/desktop"
-	portalShortcutIf = "org.freedesktop.portal.GlobalShortcuts"
-	portalRequestIf  = "org.freedesktop.portal.Request"
-	portalSessionIf  = "org.freedesktop.portal.Session"
-	shortcutID       = "debrief-toggle"
-	shortcutDesc     = "Toggle Debrief window"
-	responseTimeout  = 5 * time.Second
+	portalDest         = "org.freedesktop.portal.Desktop"
+	portalPath         = "/org/freedesktop/portal/desktop"
+	portalShortcutIf   = "org.freedesktop.portal.GlobalShortcuts"
+	portalRequestIf    = "org.freedesktop.portal.Request"
+	portalSessionIf    = "org.freedesktop.portal.Session"
+	shortcutID         = "debrief-toggle"
+	shortcutDesc       = "Toggle Debrief window"
+	responseTimeout    = 5 * time.Second
+	signalBufSize      = 4
+	minResponseBodyLen = 2
 )
 
 // portalBackend uses the D-Bus GlobalShortcuts portal for Wayland hotkeys.
@@ -71,7 +74,7 @@ func newPortalBackend(modStrs []string, keyStr string) (*portalBackend, error) {
 			log.Printf("Hotkey portal: error closing D-Bus connection: %v", closeErr)
 		}
 
-		return nil, fmt.Errorf("GlobalShortcuts interface not available on this portal backend")
+		return nil, errors.New("GlobalShortcuts interface not available on this portal backend")
 	}
 
 	return &portalBackend{
@@ -98,7 +101,7 @@ func (p *portalBackend) Register() error {
 		return fmt.Errorf("failed to add signal match: %w", err)
 	}
 
-	sigChan := make(chan *dbus.Signal, 4)
+	sigChan := make(chan *dbus.Signal, signalBufSize)
 	p.conn.Signal(sigChan)
 
 	// Step 1: CreateSession
@@ -130,12 +133,12 @@ func (p *portalBackend) Register() error {
 	// Extract session handle from results
 	sessionHandleVariant, ok := results["session_handle"]
 	if !ok {
-		return fmt.Errorf("CreateSession response missing session_handle")
+		return errors.New("CreateSession response missing session_handle")
 	}
 
 	sessionHandle, ok := sessionHandleVariant.Value().(string)
 	if !ok {
-		return fmt.Errorf("session_handle is not a string")
+		return errors.New("session_handle is not a string")
 	}
 
 	p.sessionPath = dbus.ObjectPath(sessionHandle)
@@ -210,7 +213,7 @@ func (p *portalBackend) listenActivated() {
 		return
 	}
 
-	sigChan := make(chan *dbus.Signal, 4)
+	sigChan := make(chan *dbus.Signal, signalBufSize)
 	p.conn.Signal(sigChan)
 
 	log.Println("Hotkey portal: Listening for Activated signals")
@@ -221,7 +224,7 @@ func (p *portalBackend) listenActivated() {
 		}
 
 		// Activated signal body: (session_handle, shortcut_id, timestamp, options)
-		if len(sig.Body) < 2 {
+		if len(sig.Body) < minResponseBodyLen {
 			continue
 		}
 
@@ -283,7 +286,7 @@ func waitResponse(sigChan <-chan *dbus.Signal, expectedPath dbus.ObjectPath) (ui
 		select {
 		case sig, ok := <-sigChan:
 			if !ok {
-				return 0, nil, fmt.Errorf("signal channel closed")
+				return 0, nil, errors.New("signal channel closed")
 			}
 
 			if sig.Name != portalRequestIf+".Response" {
@@ -294,13 +297,13 @@ func waitResponse(sigChan <-chan *dbus.Signal, expectedPath dbus.ObjectPath) (ui
 				continue
 			}
 
-			if len(sig.Body) < 2 {
-				return 0, nil, fmt.Errorf("Response signal has insufficient body fields")
+			if len(sig.Body) < minResponseBodyLen {
+				return 0, nil, errors.New("response signal has insufficient body fields")
 			}
 
 			code, ok := sig.Body[0].(uint32)
 			if !ok {
-				return 0, nil, fmt.Errorf("Response code is not uint32")
+				return 0, nil, errors.New("response code is not uint32")
 			}
 
 			results, _ := sig.Body[1].(map[string]dbus.Variant)
@@ -308,7 +311,7 @@ func waitResponse(sigChan <-chan *dbus.Signal, expectedPath dbus.ObjectPath) (ui
 			return code, results, nil
 
 		case <-timer.C:
-			return 0, nil, fmt.Errorf("timed out waiting for portal response")
+			return 0, nil, errors.New("timed out waiting for portal response")
 		}
 	}
 }

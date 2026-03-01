@@ -1,0 +1,37 @@
+name: build
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc pkg-config libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev libappindicator3-dev
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: set up go 1.25
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.0"
+        id: go
+      - name: Go Mod Download
+        run: go mod download
+      - name: Go Mod Verify
+        run: go mod verify
+      - name: Go Tidy
+        run: go mod tidy && git diff --exit-code
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+      - name: Format
+        run: golangci-lint fmt && git diff --exit-code
+      - name: Build
+        run: go build -o debrief .
+      - name: Install xvfb
+        run: sudo apt-get install -y xvfb
+      - name: Test
+        run: xvfb-run go test -v -timeout=100s -covermode=count ./...

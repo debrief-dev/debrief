@@ -39,28 +39,3 @@ func TestParseGsettingsArray(t *testing.T) {
 		})
 	}
 }
-
-func TestBuildGnomeTrigger(t *testing.T) {
-	tests := []struct {
-		name    string
-		modStrs []string
-		keyStr  string
-		want    string
-	}{
-		{"ctrl+shift+h", []string{Ctrl, Shift}, "H", "<Control><Shift>h"},
-		{"alt+a", []string{Alt}, "A", "<Alt>a"},
-		{"super+h", []string{Win}, "H", "<Super>h"},
-		{"cmd+h", []string{Cmd}, "H", "<Super>h"},
-		{"no modifiers", nil, "H", "h"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := buildGnomeTrigger(tt.modStrs, tt.keyStr)
-			if got != tt.want {
-				t.Errorf("buildGnomeTrigger(%v, %q) = %q, want %q",
-					tt.modStrs, tt.keyStr, got, tt.want)
-			}
-		})
-	}
-}

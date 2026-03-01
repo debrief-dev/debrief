@@ -3,6 +3,7 @@
 package hotkey
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -15,12 +16,13 @@ import (
 
 // GNOME gsettings + D-Bus service constants
 const (
-	gnomeDBusName      = "com.github.debrief"
-	gnomeDBusPath      = "/com/github/debrief"
-	gnomeDBusIface     = "com.github.debrief"
-	gnomeGsettingsBase = "org.gnome.settings-daemon.plugins.media-keys"
-	gnomeCustomKBPath  = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/debrief/"
-	gnomeShortcutName  = "Toggle Debrief"
+	gnomeDBusName       = "com.github.debrief"
+	gnomeDBusPath       = "/com/github/debrief"
+	gnomeDBusIface      = "com.github.debrief"
+	gnomeGsettingsBase  = "org.gnome.settings-daemon.plugins.media-keys"
+	gnomeCustomKBPath   = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/debrief/"
+	gnomeShortcutName   = "Toggle Debrief"
+	gsettingsEmptyArray = "@as []"
 )
 
 // gnomeToggleHandler receives D-Bus Toggle() calls from GNOME's shortcut system.
@@ -249,7 +251,7 @@ func buildGnomeTrigger(modStrs []string, keyStr string) string {
 
 // readCustomKeybindings reads the GNOME custom-keybindings gsettings array.
 func readCustomKeybindings() ([]string, error) {
-	out, err := exec.Command("gsettings", "get", gnomeGsettingsBase, "custom-keybindings").Output()
+	out, err := exec.CommandContext(context.Background(), "gsettings", "get", gnomeGsettingsBase, "custom-keybindings").Output() //nolint:gosec // arguments are internally constructed
 	if err != nil {
 		return nil, fmt.Errorf("gsettings get custom-keybindings failed: %w", err)
 	}
@@ -261,7 +263,7 @@ func readCustomKeybindings() ([]string, error) {
 func writeCustomKeybindings(paths []string) error {
 	var val string
 	if len(paths) == 0 {
-		val = "@as []"
+		val = gsettingsEmptyArray
 	} else {
 		quoted := make([]string, 0, len(paths))
 
@@ -276,7 +278,7 @@ func writeCustomKeybindings(paths []string) error {
 		}
 
 		if len(quoted) == 0 {
-			val = "@as []"
+			val = gsettingsEmptyArray
 		} else {
 			var b strings.Builder
 			b.WriteByte('[')
@@ -294,7 +296,7 @@ func writeCustomKeybindings(paths []string) error {
 		}
 	}
 
-	cmd := exec.Command("gsettings", "set", gnomeGsettingsBase, "custom-keybindings", val)
+	cmd := exec.CommandContext(context.Background(), "gsettings", "set", gnomeGsettingsBase, "custom-keybindings", val) //nolint:gosec // arguments are internally constructed
 
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("gsettings set custom-keybindings failed: %w (output: %s)", err, out)
@@ -306,7 +308,7 @@ func writeCustomKeybindings(paths []string) error {
 // parseGsettingsArray parses the gsettings array format.
 // Handles: "@as []", "[]", "['path1', 'path2']"
 func parseGsettingsArray(s string) []string {
-	if s == "@as []" || s == "[]" {
+	if s == gsettingsEmptyArray || s == "[]" {
 		return nil
 	}
 
@@ -334,7 +336,7 @@ func parseGsettingsArray(s string) []string {
 
 // gsettingsSet runs gsettings set with the given schema path, key, and value.
 func gsettingsSet(schemaPath, key, value string) error {
-	cmd := exec.Command("gsettings", "set", schemaPath, key, value)
+	cmd := exec.CommandContext(context.Background(), "gsettings", "set", schemaPath, key, value) //nolint:gosec // arguments are internally constructed
 
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("gsettings set %s %s failed: %w (output: %s)", schemaPath, key, err, out)
@@ -345,7 +347,7 @@ func gsettingsSet(schemaPath, key, value string) error {
 
 // gsettingsReset runs gsettings reset with the given schema path and key.
 func gsettingsReset(schemaPath, key string) error {
-	cmd := exec.Command("gsettings", "reset", schemaPath, key)
+	cmd := exec.CommandContext(context.Background(), "gsettings", "reset", schemaPath, key) //nolint:gosec // arguments are internally constructed
 
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("gsettings reset %s %s failed: %w (output: %s)", schemaPath, key, err, out)

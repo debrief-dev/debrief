@@ -8,7 +8,6 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/widget/material"
-
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/model"
 )
