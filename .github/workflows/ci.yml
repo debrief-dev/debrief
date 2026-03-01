@@ -31,5 +31,7 @@ jobs:
         run: golangci-lint fmt && git diff --exit-code
       - name: Build
         run: go build -o debrief .
+      - name: Install xvfb
+        run: sudo apt-get install -y xvfb
       - name: Test
-        run: go test -v -timeout=100s -covermode=count ./...
+        run: xvfb-run go test -v -timeout=100s -covermode=count ./...
