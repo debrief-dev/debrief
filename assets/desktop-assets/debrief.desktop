@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=0.1.0
+Name=Debrief
+Exec=debrief
+Terminal=false
+Type=Application
+Icon=debrief
+Categories=Shell;Development;

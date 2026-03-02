@@ -1,6 +1,13 @@
 TAG_NAME?=$(shell git describe --tags --abbrev=0)
 APP_NAME="Debrief"
 APP_NAME_LOWERCASE="debrief"
+LINUX_ARCH?=amd64
+
+ifeq ($(LINUX_ARCH),arm64)
+  LINUX_CC?=aarch64-linux-gnu-gcc
+else
+  LINUX_CC?=gcc
+endif
 
 .PHONY: build_macos_app
 build_macos_app:
@@ -131,16 +138,38 @@ build_windows:
 	gogio -ldflags="-X version.AppVersion=${TAG_NAME}" -target=windows -arch=arm64 -o "dist/arm64/${APP_NAME}.exe" .
 	rm -f *.syso
 
+.PHONY: build_linux_binary
+build_linux_binary:
+	@echo "Building Linux $(LINUX_ARCH) binary..."
+	CGO_ENABLED=1 CC=$(LINUX_CC) GOOS=linux GOARCH=$(LINUX_ARCH) go build -ldflags="-X version.AppVersion=$(TAG_NAME)" -o ./dist/linux/${APP_NAME_LOWERCASE} .
+
 .PHONY: build_linux
-build_linux:
-	@echo "Building Linux amd64..."
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-X version.AppVersion=$(TAG_NAME)" -o ./dist/amd64/${APP_NAME_LOWERCASE} .
-	cp ./assets/install_linux.sh ./dist/amd64
-	cp ./assets/appicon.png ./dist/amd64
-	cp ./LICENSE ./dist/amd64
-	cp -r ./assets/desktop-assets ./dist/amd64
-	tar -cJf ./dist/${APP_NAME_LOWERCASE}-linux-$(TAG_NAME)-amd64.tar.xz --directory=./dist/amd64 ${APP_NAME_LOWERCASE} desktop-assets install_linux.sh appicon.png ./LICENSE
-	rm -rf ./dist/amd64
+build_linux: build_linux_binary
+	@echo "Packaging Linux $(LINUX_ARCH) tarball..."
+	cp ./assets/install_linux.sh ./dist/linux
+	cp ./assets/appicon.png ./dist/linux
+	cp ./LICENSE ./dist/linux
+	cp -r ./assets/desktop-assets ./dist/linux
+	tar -cJf ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).tar.xz --directory=./dist/linux ${APP_NAME_LOWERCASE} desktop-assets install_linux.sh appicon.png ./LICENSE
+	rm -rf ./dist/linux
+
+.PHONY: build_deb
+build_deb: build_linux_binary
+	@echo "Building deb $(LINUX_ARCH) package..."
+	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --packager deb --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).deb
+	rm -rf ./dist/linux
+
+.PHONY: build_rpm
+build_rpm: build_linux_binary
+	@echo "Building rpm $(LINUX_ARCH) package..."
+	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --packager rpm --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).rpm
+	rm -rf ./dist/linux
+
+.PHONY: build_archlinux
+build_archlinux: build_linux_binary
+	@echo "Building Arch Linux $(LINUX_ARCH) package..."
+	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --packager archlinux --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).pkg.tar.zst
+	rm -rf ./dist/linux
 
 .PHONY: run
 run:
