@@ -11,12 +11,38 @@ jobs:
   build:
     runs-on: ubuntu-24.04
 
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            cc: gcc
+            cross_deps: ""
+          - arch: arm64
+            cc: aarch64-linux-gnu-gcc
+            cross_deps: gcc-aarch64-linux-gnu
+
     steps:
+      - name: Enable arm64 multiarch
+        if: matrix.arch == 'arm64'
+        run: sudo dpkg --add-architecture arm64
+
       - name: Update dependencies
         run: sudo apt-get update
 
       - name: Install dependencies
-        run: sudo apt install gcc pkg-config libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev libappindicator3-dev
+        run: |
+          sudo apt install gcc pkg-config \
+            libwayland-dev:${{ matrix.arch }} \
+            libx11-dev:${{ matrix.arch }} \
+            libx11-xcb-dev:${{ matrix.arch }} \
+            libxkbcommon-x11-dev:${{ matrix.arch }} \
+            libgles2-mesa-dev:${{ matrix.arch }} \
+            libegl1-mesa-dev:${{ matrix.arch }} \
+            libffi-dev:${{ matrix.arch }} \
+            libxcursor-dev:${{ matrix.arch }} \
+            libvulkan-dev:${{ matrix.arch }} \
+            libappindicator3-dev:${{ matrix.arch }} \
+            ${{ matrix.cross_deps }}
 
       - name: Checkout repo
         uses: actions/checkout@v6
@@ -26,17 +52,33 @@ jobs:
         with:
           go-version: 1.25.0
 
+      - name: Install nfpm
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+
       - name: Update Version in debrief.desktop
         run: |
           VERSION=${{ github.event.release.tag_name }}
-          sed -i "s/^Version=.*/Version=${VERSION:1}/" build/desktop-assets/debrief.desktop
+          sed -i "s/^Version=.*/Version=${VERSION:1}/" assets/desktop-assets/debrief.desktop
 
-      - name: Build linux amd64
-        run: make build_linux
+      - name: Build linux ${{ matrix.arch }} tarball
+        run: make build_linux LINUX_ARCH=${{ matrix.arch }}
 
-      - name: Upload Release Asset
+      - name: Build deb package
+        run: make build_deb LINUX_ARCH=${{ matrix.arch }}
+
+      - name: Build rpm package
+        run: make build_rpm LINUX_ARCH=${{ matrix.arch }}
+
+      - name: Build Arch Linux package
+        run: make build_archlinux LINUX_ARCH=${{ matrix.arch }}
+
+      - name: Upload Release Assets
         run: |
-          gh release upload ${{github.event.release.tag_name}} ./dist/debrief-linux-${{ github.ref_name }}-amd64.tar.xz
+          gh release upload ${{ github.event.release.tag_name }} \
+            ./dist/debrief-${{ github.ref_name }}-${{ matrix.arch }}.tar.xz \
+            ./dist/debrief-${{ github.ref_name }}-${{ matrix.arch }}.deb \
+            ./dist/debrief-${{ github.ref_name }}-${{ matrix.arch }}.rpm \
+            ./dist/debrief-${{ github.ref_name }}-${{ matrix.arch }}.pkg.tar.zst
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
