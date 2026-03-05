@@ -15,7 +15,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	appstate "github.com/debrief-dev/debrief/app"
-	"github.com/debrief-dev/debrief/model"
+	"github.com/debrief-dev/debrief/data/model"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 

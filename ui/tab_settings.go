@@ -11,7 +11,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/widget/material"
 	appstate "github.com/debrief-dev/debrief/app"
-	"github.com/debrief-dev/debrief/hotkey"
+	"github.com/debrief-dev/debrief/infra/hotkey"
 )
 
 // renderSettingsTab renders the settings view

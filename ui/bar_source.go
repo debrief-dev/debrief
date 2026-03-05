@@ -8,8 +8,8 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	appstate "github.com/debrief-dev/debrief/app"
-	"github.com/debrief-dev/debrief/model"
-	"github.com/debrief-dev/debrief/shell"
+	"github.com/debrief-dev/debrief/data/model"
+	"github.com/debrief-dev/debrief/data/shell"
 )
 
 // renderShellBadge renders a single clickable shell filter badge with click handling

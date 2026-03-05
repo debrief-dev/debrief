@@ -12,8 +12,8 @@ endif
 .PHONY: build_macos_app
 build_macos_app:
 	@echo "Building macOS..."
-	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/${APP_NAME}.app .
-	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/${APP_NAME}.app .
+	gogio -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/${APP_NAME}.app .
+	gogio -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/${APP_NAME}.app .
 	codesign --force --deep --sign - ./dist/amd64/${APP_NAME}.app
 	codesign --force --deep --sign - ./dist/arm64/${APP_NAME}.app
 
@@ -61,8 +61,8 @@ build_macos_signed:
 	fi
 
 	# Build apps
-	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/${APP_NAME}.app .
-	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/${APP_NAME}.app .
+	gogio -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/${APP_NAME}.app .
+	gogio -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/${APP_NAME}.app .
 
 	# Sign apps with Developer ID
 	codesign --force --options runtime --deep -vvv --sign "$(IDENTITY)" ./dist/amd64/${APP_NAME}.app
@@ -134,14 +134,14 @@ build_windows:
 	@echo "Building Windows..."
 	rm -f *.syso
 	cp assets/appicon.png .
-	gogio -ldflags="-X version.AppVersion=${TAG_NAME}" -target=windows -arch=amd64 -o "dist/amd64/${APP_NAME}.exe" .
-	gogio -ldflags="-X version.AppVersion=${TAG_NAME}" -target=windows -arch=arm64 -o "dist/arm64/${APP_NAME}.exe" .
+	gogio -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=${TAG_NAME}" -target=windows -arch=amd64 -o "dist/amd64/${APP_NAME}.exe" .
+	gogio -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=${TAG_NAME}" -target=windows -arch=arm64 -o "dist/arm64/${APP_NAME}.exe" .
 	rm -f *.syso
 
 .PHONY: build_linux_binary
 build_linux_binary:
 	@echo "Building Linux $(LINUX_ARCH) binary..."
-	CGO_ENABLED=1 CC=$(LINUX_CC) GOOS=linux GOARCH=$(LINUX_ARCH) go build -ldflags="-X version.AppVersion=$(TAG_NAME)" -o ./dist/linux/${APP_NAME_LOWERCASE} .
+	CGO_ENABLED=1 CC=$(LINUX_CC) GOOS=linux GOARCH=$(LINUX_ARCH) go build -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=$(TAG_NAME)" -o ./dist/linux/${APP_NAME_LOWERCASE} .
 
 .PHONY: build_linux
 build_linux: build_linux_binary
