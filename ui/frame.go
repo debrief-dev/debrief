@@ -4,7 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget/material"
 	appstate "github.com/debrief-dev/debrief/app"
-	"github.com/debrief-dev/debrief/model"
+	"github.com/debrief-dev/debrief/data/model"
 )
 
 // invalidateHeightCaches clears the height caches to force recalculation.

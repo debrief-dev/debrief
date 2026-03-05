@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/debrief-dev/debrief/model"
+	"github.com/debrief-dev/debrief/data/model"
 )
 
 func TestFindBestMatchingNode(t *testing.T) {

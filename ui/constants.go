@@ -2,9 +2,9 @@ package ui
 
 import (
 	"gioui.org/unit"
-	"github.com/debrief-dev/debrief/config"
-	"github.com/debrief-dev/debrief/hotkey"
-	"github.com/debrief-dev/debrief/model"
+	"github.com/debrief-dev/debrief/data/model"
+	"github.com/debrief-dev/debrief/infra/hotkey"
+	"github.com/debrief-dev/debrief/infra/platform"
 )
 
 // -----
@@ -30,7 +30,7 @@ const SearchEditorHint = "Search commands..."
 // Hint widget Strings
 var hints = func() [4]string {
 	mod := hotkey.Ctrl
-	if config.IsMacOS() {
+	if platform.IsMacOS() {
 		mod = hotkey.Cmd
 	}
 
@@ -65,7 +65,7 @@ func tabName(t model.Tab) string {
 // Tabs shortcuts
 var tabShortcutHints = func() [4]string {
 	prefix := hotkey.Ctrl
-	if config.IsMacOS() {
+	if platform.IsMacOS() {
 		prefix = hotkey.Cmd
 	}
 

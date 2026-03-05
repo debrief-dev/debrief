@@ -7,10 +7,10 @@ import (
 	"time"
 
 	appstate "github.com/debrief-dev/debrief/app"
-	"github.com/debrief-dev/debrief/cmdstore"
-	"github.com/debrief-dev/debrief/config"
-	"github.com/debrief-dev/debrief/model"
-	"github.com/debrief-dev/debrief/tree"
+	"github.com/debrief-dev/debrief/data/cmdstore"
+	"github.com/debrief-dev/debrief/data/model"
+	"github.com/debrief-dev/debrief/data/tree"
+	"github.com/debrief-dev/debrief/infra/config"
 	"github.com/fsnotify/fsnotify"
 )
 

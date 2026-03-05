@@ -12,8 +12,8 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget/material"
 	appstate "github.com/debrief-dev/debrief/app"
-	"github.com/debrief-dev/debrief/model"
-	"github.com/debrief-dev/debrief/tree"
+	"github.com/debrief-dev/debrief/data/model"
+	"github.com/debrief-dev/debrief/data/tree"
 )
 
 // renderCommandsTab renders the existing commands view

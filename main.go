@@ -20,15 +20,15 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	appstate "github.com/debrief-dev/debrief/app"
-	"github.com/debrief-dev/debrief/config"
+	"github.com/debrief-dev/debrief/data/model"
+	"github.com/debrief-dev/debrief/data/shell"
 	"github.com/debrief-dev/debrief/font"
-	"github.com/debrief-dev/debrief/hotkey"
-	"github.com/debrief-dev/debrief/model"
-	"github.com/debrief-dev/debrief/shell"
-	"github.com/debrief-dev/debrief/tray"
+	"github.com/debrief-dev/debrief/infra/config"
+	"github.com/debrief-dev/debrief/infra/hotkey"
+	"github.com/debrief-dev/debrief/infra/platform"
+	"github.com/debrief-dev/debrief/infra/tray"
+	"github.com/debrief-dev/debrief/infra/window"
 	"github.com/debrief-dev/debrief/ui"
-	"github.com/debrief-dev/debrief/version"
-	"github.com/debrief-dev/debrief/window"
 	"github.com/getlantern/golog"
 )
 
@@ -59,7 +59,7 @@ func main() {
 			}
 		}()
 
-		log.Printf("Debrief started - version %s", version.AppVersion)
+		log.Printf("Debrief started - version %s", config.AppVersion)
 	}
 
 	// Start pprof server for profiling (only when --pprof flag is passed)
@@ -86,7 +86,7 @@ func main() {
 	trayReady := make(chan struct{}, 1)
 
 	go func() {
-		if config.IsMacOS() {
+		if platform.IsMacOS() {
 			log.Println("macOS: waiting for window before initializing tray")
 			<-trayReady
 		}
@@ -517,7 +517,7 @@ func run(
 				}
 			}
 
-			if config.IsLinux() {
+			if platform.IsLinux() {
 				// On Linux, delay hide to let Gio process the pending clipboard.WriteCmd.
 				// The write is async (queued in ops) and needs the window alive to complete.
 				time.AfterFunc(window.LinuxClipboardDelay, sendHide)
