@@ -9,40 +9,33 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-
     strategy:
       matrix:
         include:
           - arch: amd64
-            cc: gcc
-            cross_deps: ""
+            runner: ubuntu-24.04
           - arch: arm64
-            cc: aarch64-linux-gnu-gcc
-            cross_deps: gcc-aarch64-linux-gnu
+            runner: ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.runner }}
 
     steps:
-      - name: Enable arm64 multiarch
-        if: matrix.arch == 'arm64'
-        run: sudo dpkg --add-architecture arm64
-
       - name: Update dependencies
         run: sudo apt-get update
 
       - name: Install dependencies
         run: |
           sudo apt install gcc pkg-config \
-            libwayland-dev:${{ matrix.arch }} \
-            libx11-dev:${{ matrix.arch }} \
-            libx11-xcb-dev:${{ matrix.arch }} \
-            libxkbcommon-x11-dev:${{ matrix.arch }} \
-            libgles2-mesa-dev:${{ matrix.arch }} \
-            libegl1-mesa-dev:${{ matrix.arch }} \
-            libffi-dev:${{ matrix.arch }} \
-            libxcursor-dev:${{ matrix.arch }} \
-            libvulkan-dev:${{ matrix.arch }} \
-            libappindicator3-dev:${{ matrix.arch }} \
-            ${{ matrix.cross_deps }}
+            libwayland-dev \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxkbcommon-x11-dev \
+            libgles2-mesa-dev \
+            libegl1-mesa-dev \
+            libffi-dev \
+            libxcursor-dev \
+            libvulkan-dev \
+            libappindicator3-dev
 
       - name: Checkout repo
         uses: actions/checkout@v6
