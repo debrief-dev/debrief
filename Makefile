@@ -1,4 +1,4 @@
-TAG_NAME?=$(shell git describe --tags --abbrev=0)
+TAG_NAME?=$(shell git describe --tags --dirty --abbrev=0 2>/dev/null || echo $(shell git rev-parse --short HEAD)-dirty)
 APP_NAME="Debrief"
 APP_NAME_LOWERCASE="debrief"
 LINUX_ARCH?=amd64
@@ -14,6 +14,8 @@ build_macos_app:
 	@echo "Building macOS..."
 	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/${APP_NAME}.app .
 	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/${APP_NAME}.app .
+	cp ./assets/appicon.icns ./dist/amd64/${APP_NAME}.app/Contents/Resources/appicon.icns
+	cp ./assets/appicon.icns ./dist/arm64/${APP_NAME}.app/Contents/Resources/appicon.icns
 	codesign --force --deep --sign - ./dist/amd64/${APP_NAME}.app
 	codesign --force --deep --sign - ./dist/arm64/${APP_NAME}.app
 
@@ -31,6 +33,7 @@ build_macos_dmg:
 	  --icon-size 100 \
 	  --icon "${APP_NAME}.app" 125 150 \
 	  --hide-extension "${APP_NAME}.app" \
+	  --no-internet-enable \
 	  --app-drop-link 375 150 \
 	  "./dist/${APP_NAME_LOWERCASE}-macos-$(TAG_NAME)-arm64.dmg" \
 	  "./dist/arm64/${APP_NAME}.app"
@@ -44,6 +47,7 @@ build_macos_dmg:
 	  --icon-size 100 \
 	  --icon "${APP_NAME}.app" 125 150 \
 	  --hide-extension "${APP_NAME}.app" \
+	  --no-internet-enable \
 	  --app-drop-link 375 150 \
 	  "./dist/${APP_NAME_LOWERCASE}-macos-$(TAG_NAME)-amd64.dmg" \
 	  "./dist/amd64/${APP_NAME}.app"
@@ -60,17 +64,23 @@ build_macos_signed:
 		exit 1; \
 	fi
 
-	# Build apps
+	@echo "Building amd64..."
 	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=amd64 -o ./dist/amd64/${APP_NAME}.app .
+	@echo "Building arm64..."
 	gogio -ldflags="-X version.AppVersion=$(TAG_NAME)" -appid=rest.${APP_NAME_LOWERCASE}.app -icon=./assets/appicon.png -target=macos -arch=arm64 -o ./dist/arm64/${APP_NAME}.app .
 
-	# Sign apps with Developer ID
-	codesign --force --options runtime --deep -vvv --sign "$(IDENTITY)" ./dist/amd64/${APP_NAME}.app
-	codesign --force --options runtime --deep --sign "$(IDENTITY)" ./dist/arm64/${APP_NAME}.app
+	@echo "Replacing icons..."
+	cp ./assets/appicon.icns ./dist/amd64/${APP_NAME}.app/Contents/Resources/appicon.icns
+	cp ./assets/appicon.icns ./dist/arm64/${APP_NAME}.app/Contents/Resources/appicon.icns
 
-	# Verify signing
-	codesign -dvv ./dist/amd64/${APP_NAME}.app
-	codesign -dvv ./dist/arm64/${APP_NAME}.app
+	@echo "Signing amd64..."
+	xattr -cr ./dist/amd64/${APP_NAME}.app && codesign --force --options runtime --deep -vvv --sign "$(IDENTITY)" ./dist/amd64/${APP_NAME}.app
+	@echo "Signing arm64..."
+	xattr -cr ./dist/arm64/${APP_NAME}.app && codesign --force --options runtime --deep --sign "$(IDENTITY)" ./dist/arm64/${APP_NAME}.app
+
+	@echo "Verifying signatures..."
+	codesign --verify --deep --strict ./dist/amd64/${APP_NAME}.app
+	codesign --verify --deep --strict ./dist/arm64/${APP_NAME}.app
 
 	@echo "Apps built and signed. To notarize, run:"
 	@echo "  ditto -c -k --keepParent ./dist/amd64/${APP_NAME}.app ./dist/${APP_NAME}-amd64.zip"
@@ -90,13 +100,14 @@ notarize_macos:
 		exit 1; \
 	fi
 
-	# Create zip archives for notarization
+	@echo "Creating zip archives..."
 	ditto -c -k --keepParent ./dist/amd64/${APP_NAME}.app ./dist/${APP_NAME}-amd64.zip
 	ditto -c -k --keepParent ./dist/arm64/${APP_NAME}.app ./dist/${APP_NAME}-arm64.zip
 
-	# Submit for notarization
-	xcrun notarytool submit ./dist/${APP_NAME}-amd64.zip --apple-id "$(APPLE_ID)" --password "$(APPLE_APP_SPECIFIC_PASSWORD)" --team-id "$(APPLE_TEAM_ID)" --wait
-	xcrun notarytool submit ./dist/${APP_NAME}-arm64.zip --apple-id "$(APPLE_ID)" --password "$(APPLE_APP_SPECIFIC_PASSWORD)" --team-id "$(APPLE_TEAM_ID)" --wait
+	@echo "Submitting amd64 for notarization..."
+	@xcrun notarytool submit ./dist/${APP_NAME}-amd64.zip --apple-id "$(APPLE_ID)" --password "$(APPLE_APP_SPECIFIC_PASSWORD)" --team-id "$(APPLE_TEAM_ID)" --wait --verbose
+	@echo "Submitting arm64 for notarization..."
+	@xcrun notarytool submit ./dist/${APP_NAME}-arm64.zip --apple-id "$(APPLE_ID)" --password "$(APPLE_APP_SPECIFIC_PASSWORD)" --team-id "$(APPLE_TEAM_ID)" --wait --verbose
 
 	@echo "Notarization complete. Now run 'make build_macos_dmg' to create DMG files."
 

@@ -57,7 +57,7 @@ BUILD_NUMBER="${2:-$(date +%Y%m%d%H%M%S)}"
 
 # --- Configuration ---
 APP_NAME="Debrief"
-BUNDLE_ID="rest.debrief.app"
+BUNDLE_ID="com.debrief"
 ICON_PNG="./assets/appicon.png"
 ICON_ICNS="./assets/appicon.icns"
 SIGN_APP="3rd Party Mac Developer Application: Yauheni Basiakou ($APPLE_TEAM_ID)"

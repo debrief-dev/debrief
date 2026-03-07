@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="700" viewBox="0 0 1000 700">
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="350" viewBox="0 0 500 350">
   <!-- White background -->
-  <rect width="1000" height="700" fill="#ffffff"/>
+  <rect width="500" height="350" fill="#ffffff"/>
 
   <!-- Debrief logo centered at top -->
-  <g transform="translate(500, 90) scale(0.57) translate(-959.5, -539.5)" fill="#6496ff">
+  <g transform="translate(250, 45) scale(0.285) translate(-959.5, -539.5)" fill="#6496ff">
     <path d="M1030.15,428.69c-20.3-12.83-44.36-20.25-70.15-20.25h-131.56v20.25h201.7Z"/>
     <path d="M1070.87,469.16c-4.66-7.25-9.99-14.05-15.97-20.25h-226.46v20.25h242.43Z"/>
     <polygon points="828.44 489.4 897.52 489.4 908.06 509.62 828.44 509.62 828.44 489.4"/>
@@ -17,8 +17,8 @@
     <path d="M828.44,651.31v20.25h131.56c25.78,0,49.85-7.42,70.15-20.25h-201.7Z"/>
   </g>
 
-  <!-- Arrow -->
-  <g transform="translate(440, 210) scale(4)" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Arrow centered between icon positions (125,150) and (375,150) -->
+  <g transform="translate(226, 126) scale(2)" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M4 12H20M20 12L14 6M20 12L14 18"/>
   </g>
 </svg>
