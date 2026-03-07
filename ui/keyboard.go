@@ -5,7 +5,7 @@ import (
 
 	"gioui.org/io/key"
 	appstate "github.com/debrief-dev/debrief/app"
-	"github.com/debrief-dev/debrief/model"
+	"github.com/debrief-dev/debrief/data/model"
 )
 
 // handleGlobalKeyboard handles keyboard shortcuts that should work on all tabs

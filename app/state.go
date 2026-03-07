@@ -7,11 +7,11 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/widget"
-	"github.com/debrief-dev/debrief/cmdstore"
-	"github.com/debrief-dev/debrief/config"
-	"github.com/debrief-dev/debrief/hotkey"
-	"github.com/debrief-dev/debrief/model"
-	"github.com/debrief-dev/debrief/shell"
+	"github.com/debrief-dev/debrief/data/cmdstore"
+	"github.com/debrief-dev/debrief/data/model"
+	"github.com/debrief-dev/debrief/data/shell"
+	"github.com/debrief-dev/debrief/infra/config"
+	"github.com/debrief-dev/debrief/infra/hotkey"
 )
 
 // CommandsState holds UI and data state for the Commands tab.

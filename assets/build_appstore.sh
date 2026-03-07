@@ -146,7 +146,7 @@ EOF
 echo ""
 echo "[1/6] Building for Intel (amd64)..."
 gogio \
-  -ldflags="-X version.AppVersion=$VERSION" \
+  -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=$VERSION" \
   -appid="$BUNDLE_ID" \
   -icon="$ICON_PNG" \
   -target=macos \
@@ -155,7 +155,7 @@ gogio \
 
 echo "[2/6] Building for Apple Silicon (arm64)..."
 gogio \
-  -ldflags="-X version.AppVersion=$VERSION" \
+  -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=$VERSION" \
   -appid="$BUNDLE_ID" \
   -icon="$ICON_PNG" \
   -target=macos \
