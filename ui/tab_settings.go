@@ -6,15 +6,19 @@ import (
 	"image/color"
 	"log"
 
+	"gioui.org/f32"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget/material"
 	appstate "github.com/debrief-dev/debrief/app"
+	"github.com/debrief-dev/debrief/infra/autostart"
 	"github.com/debrief-dev/debrief/infra/hotkey"
 )
 
 // renderSettingsTab renders the settings view
+//
+//nolint:dupl // top-level layout is structurally similar to card internals but serves a different purpose
 func renderSettingsTab(gtx C, app *appstate.State, theme *material.Theme) D {
 	return material.List(theme, &app.SettingsList).Layout(gtx, 1, func(gtx C, _ int) D {
 		return layout.Inset{
@@ -26,15 +30,14 @@ func renderSettingsTab(gtx C, app *appstate.State, theme *material.Theme) D {
 			return layout.Flex{
 				Axis: layout.Vertical,
 			}.Layout(gtx,
-				// Title
-				layout.Rigid(func(gtx C) D {
-					title := material.H5(theme, "Settings")
-					return layout.Inset{Bottom: SpacingHuge}.Layout(gtx, title.Layout)
-				}),
-
 				// Hotkey configuration card
 				layout.Rigid(func(gtx C) D {
 					return renderHotkeyCard(gtx, app, theme)
+				}),
+
+				// Autostart card
+				layout.Rigid(func(gtx C) D {
+					return renderAutostartCard(gtx, app, theme)
 				}),
 			)
 		})
@@ -98,6 +101,8 @@ func renderHotkeyPresets(gtx C, app *appstate.State, theme *material.Theme) D {
 }
 
 // renderPresetButton renders a single preset radio button
+//
+//nolint:dupl // preset and toggle buttons share visual structure but differ in behavior
 func renderPresetButton(gtx C, app *appstate.State, theme *material.Theme, presetID int) D {
 	preset := app.Hotkeys.Presets[presetID]
 	isSelected := app.Hotkeys.SelectedPresetID == presetID
@@ -193,7 +198,7 @@ func renderHotkeyMessages(gtx C, app *appstate.State, theme *material.Theme) D {
 	if app.Hotkeys.Error != "" {
 		return layout.Inset{Bottom: SpacingMedium}.Layout(gtx, func(gtx C) D {
 			label := material.Body2(theme, app.Hotkeys.Error)
-			label.Color = color.NRGBA{R: ColorErrorRed, G: ColorErrorGreen, B: ColorErrorGreen, A: ColorWhite} // Red
+			label.Color = color.NRGBA{R: ColorErrorRed, G: ColorErrorGreen, B: ColorErrorBlue, A: ColorWhite}
 
 			return label.Layout(gtx)
 		})
@@ -211,6 +216,168 @@ func renderHotkeyMessages(gtx C, app *appstate.State, theme *material.Theme) D {
 	}
 
 	return D{}
+}
+
+// renderAutostartCard renders the autostart toggle card.
+//
+//nolint:dupl // label+inset patterns are structurally similar but have different content
+func renderAutostartCard(gtx C, app *appstate.State, theme *material.Theme) D {
+	return renderCard(gtx, theme, AutoStartCardTitle, func(gtx C) D {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			// Toggle button
+			layout.Rigid(func(gtx C) D {
+				return renderAutostartToggle(gtx, app, theme)
+			}),
+
+			// Error/Success messages
+			layout.Rigid(func(gtx C) D {
+				return renderAutostartMessages(gtx, app, theme)
+			}),
+		)
+	})
+}
+
+// renderAutostartToggle renders the enabled/disabled checkbox toggle.
+func renderAutostartToggle(gtx C, app *appstate.State, theme *material.Theme) D {
+	clickable := &app.AutoStartClick
+
+	for clickable.Clicked(gtx) {
+		app.AutoStartError = ""
+		app.AutoStartSuccess = false
+		app.AutoStartNeedsUpdate = true
+	}
+
+	textColor := color.NRGBA{R: ColorGray220, G: ColorGray220, B: ColorGray220, A: ColorWhite}
+
+	return layout.Inset{Bottom: SpacingLarge}.Layout(gtx, func(gtx C) D {
+		return clickable.Layout(gtx, func(gtx C) D {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx C) D {
+					return renderCheckbox(gtx, app.AutoStartEnabled)
+				}),
+				layout.Rigid(func(gtx C) D {
+					return layout.Inset{Left: SpacingLarge}.Layout(gtx, func(gtx C) D {
+						lbl := material.Body1(theme, AutoStartCardDescription)
+						lbl.Color = textColor
+
+						return lbl.Layout(gtx)
+					})
+				}),
+			)
+		})
+	})
+}
+
+// renderCheckbox draws a square checkbox indicator with an X mark when checked.
+func renderCheckbox(gtx C, checked bool) D {
+	size := gtx.Dp(CheckboxSize)
+	rr := gtx.Dp(CheckboxRadius)
+
+	// Draw box background
+	rect := clip.RRect{
+		Rect: image.Rectangle{Max: image.Pt(size, size)},
+		NE:   rr, NW: rr, SE: rr, SW: rr,
+	}
+
+	stack := rect.Push(gtx.Ops)
+
+	if checked {
+		paint.Fill(gtx.Ops, color.NRGBA{R: ColorBlueRed, G: ColorBlueGreen, B: ColorBlueBlue, A: ColorWhite})
+	} else {
+		paint.Fill(gtx.Ops, color.NRGBA{R: ColorDarkGray60, G: ColorDarkGray60, B: ColorDarkGray60, A: ColorWhite})
+	}
+
+	stack.Pop()
+
+	if checked {
+		drawXMark(gtx, size)
+	}
+
+	return D{Size: image.Pt(size, size)}
+}
+
+// drawXMark draws two diagonal stroked lines forming an X inside a box.
+func drawXMark(gtx C, size int) {
+	margin := float32(size) / CheckboxMarginDivisor
+	width := float32(size) / CheckboxStrokeDivisor
+	clr := color.NRGBA{R: ColorWhite, G: ColorWhite, B: ColorWhite, A: ColorWhite}
+
+	// Top-left to bottom-right
+	drawStrokeLine(gtx, f32.Pt(margin, margin), f32.Pt(float32(size)-margin, float32(size)-margin), width, clr)
+	// Top-right to bottom-left
+	drawStrokeLine(gtx, f32.Pt(float32(size)-margin, margin), f32.Pt(margin, float32(size)-margin), width, clr)
+}
+
+// drawStrokeLine draws a single stroked line between two points.
+func drawStrokeLine(gtx C, from, to f32.Point, width float32, clr color.NRGBA) {
+	var path clip.Path
+
+	path.Begin(gtx.Ops)
+	path.MoveTo(from)
+	path.LineTo(to)
+
+	stack := clip.Stroke{Path: path.End(), Width: width}.Op().Push(gtx.Ops)
+	paint.Fill(gtx.Ops, clr)
+	stack.Pop()
+}
+
+// renderAutostartMessages shows error/success messages for the autostart toggle.
+func renderAutostartMessages(gtx C, app *appstate.State, theme *material.Theme) D {
+	if app.AutoStartError != "" {
+		return layout.Inset{Bottom: SpacingMedium}.Layout(gtx, func(gtx C) D {
+			label := material.Body2(theme, app.AutoStartError)
+			label.Color = color.NRGBA{R: ColorErrorRed, G: ColorErrorGreen, B: ColorErrorBlue, A: ColorWhite}
+
+			return label.Layout(gtx)
+		})
+	}
+
+	if app.AutoStartSuccess {
+		return layout.Inset{Bottom: SpacingMedium}.Layout(gtx, func(gtx C) D {
+			label := material.Body2(theme, AutoStartSuccess)
+			label.Color = color.NRGBA{R: ColorSuccessRed, G: ColorSuccessGreen, B: ColorSuccessBlue, A: ColorWhite}
+
+			return label.Layout(gtx)
+		})
+	}
+
+	return D{}
+}
+
+// ProcessAutostartUpdate performs the actual autostart toggle and config save.
+// Must be called after ev.Frame in a goroutine to avoid blocking the UI thread.
+func ProcessAutostartUpdate(app *appstate.State) {
+	newState := !app.AutoStartEnabled
+
+	var err error
+	if newState {
+		err = autostart.Enable()
+	} else {
+		err = autostart.Disable()
+	}
+
+	if err != nil {
+		app.AutoStartError = fmt.Sprintf(AutoStartFailure, err)
+		log.Printf("Autostart toggle failed: %v", err)
+
+		app.AutoStartUpdating = false
+		app.Window.Invalidate()
+
+		return
+	}
+
+	app.AutoStartEnabled = newState
+	app.Config.AutoStart = newState
+
+	if err := app.Config.SaveConfig(app.ConfigPath); err != nil {
+		app.AutoStartError = fmt.Sprintf(AutoStartFailureCfg, err)
+		log.Printf("Config save failed after autostart toggle: %v", err)
+	} else {
+		app.AutoStartSuccess = true
+	}
+
+	app.AutoStartUpdating = false
+	app.Window.Invalidate()
 }
 
 // saveHotkeyPreset schedules a hotkey update for after frame submission.

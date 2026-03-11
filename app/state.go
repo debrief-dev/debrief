@@ -180,7 +180,13 @@ type State struct {
 	AllBadge    widget.Clickable             // "All" filter badge
 
 	// Settings view state (UI-THREAD-ONLY)
-	SettingsList widget.List
+	SettingsList         widget.List
+	AutoStartEnabled     bool             // Whether autostart is currently on
+	AutoStartClick       widget.Clickable // Toggle button
+	AutoStartError       string           // Error message after toggle attempt
+	AutoStartSuccess     bool             // Show success message after toggle
+	AutoStartNeedsUpdate bool             // Deferred toggle flag (like Hotkeys.NeedsUpdate)
+	AutoStartUpdating    bool             // Guard: set on UI thread before goroutine launch, cleared by goroutine before Invalidate
 
 	// Background-to-UI invalidation flag.
 	// Background goroutines set this (via MarkDirty) alongside Window.Invalidate().

@@ -16,6 +16,8 @@ type Config struct {
 
 	HotkeyPreset int `json:"hotkeyPreset"` // Preset index (0, 1, or 2)
 
+	AutoStart bool `json:"autoStart,omitempty"` // Start on computer boot
+
 	// Window geometry persisted across restarts (pixels).
 	// Zero values mean "use default".
 	WindowW int `json:"windowW,omitempty"`
@@ -27,6 +29,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Version:      SettingsVersion,
 		HotkeyPreset: 0,
+		AutoStart:    true,
 	}
 }
 

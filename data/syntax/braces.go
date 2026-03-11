@@ -35,11 +35,6 @@ func (s *ScannerState) Advance(ch byte) bool {
 	return !s.inSingleQuote && !s.inDoubleQuote
 }
 
-// InQuote reports whether the scanner is currently inside a quoted string.
-func (s *ScannerState) InQuote() bool {
-	return s.inSingleQuote || s.inDoubleQuote
-}
-
 // IsBalancedBraces checks if braces are balanced in a command,
 // respecting quotes.
 func IsBalancedBraces(command string) bool {

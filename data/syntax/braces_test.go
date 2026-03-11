@@ -55,26 +55,6 @@ func TestScannerStateAdvance(t *testing.T) {
 	}
 }
 
-func TestScannerStateInQuote(t *testing.T) {
-	var s ScannerState
-
-	if s.InQuote() {
-		t.Error("expected InQuote() = false for initial state")
-	}
-
-	s.Advance('"')
-
-	if !s.InQuote() {
-		t.Error("expected InQuote() = true after opening double quote")
-	}
-
-	s.Advance('"')
-
-	if s.InQuote() {
-		t.Error("expected InQuote() = false after closing double quote")
-	}
-}
-
 func TestBalancedBraces(t *testing.T) {
 	tests := []struct {
 		input    string
