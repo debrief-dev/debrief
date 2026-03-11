@@ -26,7 +26,7 @@ func Enable() error {
 	}
 
 	dir := filepath.Dir(desktopPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("failed to create autostart directory: %w", err)
 	}
 
@@ -38,7 +38,7 @@ func Enable() error {
 		"StartupNotify=false\n" +
 		"Terminal=false\n"
 
-	if err := os.WriteFile(desktopPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(desktopPath, []byte(content), 0o600); err != nil {
 		return fmt.Errorf("failed to write autostart desktop file: %w", err)
 	}
 
