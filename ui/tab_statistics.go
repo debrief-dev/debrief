@@ -213,6 +213,7 @@ func updateStatisticsNavigationState(app *appstate.State, topCommands []model.Ra
 	// Search primary list (matching RestoreKind) first, then fallback.
 	if app.Stats.RestoreText != "" && totalItems > 0 {
 		primary, primaryOffset := topCommands, 0
+
 		fallback, fallbackOffset := prefixList, len(topCommands)
 		if app.Stats.RestoreKind != appstate.StatsRestoreCommand {
 			primary, primaryOffset, fallback, fallbackOffset = fallback, fallbackOffset, primary, primaryOffset
