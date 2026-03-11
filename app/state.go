@@ -14,6 +14,15 @@ import (
 	"github.com/debrief-dev/debrief/infra/hotkey"
 )
 
+// StatsRestoreKind identifies which list a selected statistics item belongs to,
+// so selection can be restored to the correct section after window recreation.
+type StatsRestoreKind int
+
+const (
+	StatsRestoreCommand StatsRestoreKind = iota // Top commands list
+	StatsRestorePrefix                          // Top prefixes list
+)
+
 // CommandsState holds UI and data state for the Commands tab.
 type CommandsState struct {
 	List widget.List // Scrollable command list
@@ -32,6 +41,7 @@ type CommandsState struct {
 	NeedInitialSel    bool   // Flag to auto-select last item on initial load
 	LastSelectedIndex int    // Last selected command before typing in search (-1 = none)
 	LastSelectedCmd   string // Command text of last selection (for restoration after search)
+	RestoreCmd        string // Command text to restore selection after window recreation
 
 	// Height caching for smart scrolling with variable-height items (UI-THREAD-ONLY)
 	ItemHeights []int // Cached heights for command list items (parallel to DisplayCommands)
@@ -78,13 +88,15 @@ type StatsState struct {
 	PrefixClickables  [model.TopItemsLimit]widget.Clickable // Clickable widgets for top prefixes
 
 	// UI state (UI-THREAD-ONLY)
-	SelectedIndex  int      // Selected item index (-1 = none, 0-9 = commands, 10-19 = prefixes)
-	HoveredIndex   int      // Hovered item index (-1 = none)
-	CommandCount   int      // Number of commands available (for bounds checking)
-	PrefixCount    int      // Number of prefixes available (for bounds checking)
-	TopCommands    []string // Stored command texts for keyboard access
-	TopPrefixes    []string // Stored prefix texts for keyboard access
-	NeedInitialSel bool     // Flag to auto-select first item on tab switch
+	SelectedIndex  int              // Selected item index (-1 = none, 0-9 = commands, 10-19 = prefixes)
+	HoveredIndex   int              // Hovered item index (-1 = none)
+	CommandCount   int              // Number of commands available (for bounds checking)
+	PrefixCount    int              // Number of prefixes available (for bounds checking)
+	TopCommands    []string         // Stored command texts for keyboard access
+	TopPrefixes    []string         // Stored prefix texts for keyboard access
+	NeedInitialSel bool             // Flag to auto-select first item on tab switch
+	RestoreText    string           // Text to restore selection after window recreation
+	RestoreKind    StatsRestoreKind // Which list the selected item belongs to
 
 	// Height caching for smart scrolling (UI-THREAD-ONLY)
 	ItemHeights []int // Cached heights for statistics items (commands + prefixes)

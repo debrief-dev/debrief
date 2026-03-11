@@ -19,6 +19,10 @@ import (
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
+// treeRestoreContextRows is the number of rows shown above a restored
+// selection so the user sees surrounding context.
+const treeRestoreContextRows = 3
+
 // treeNavigationResult holds the result of a tree navigation search
 type treeNavigationResult struct {
 	foundIndex int
@@ -105,8 +109,11 @@ func renderTreeView(gtx C, app *appstate.State, theme *material.Theme) D {
 		app.Tree.List.Position.Offset = 0
 	}
 
-	// Restore selection by path after rebuild (atomic operation)
-	if selectedTreeNodePath != "" {
+	// Restore selection by path after rebuild (atomic operation).
+	// Skip when nodes is empty — the tree rebuild is async and may not have
+	// delivered data yet. Clearing the path on an empty list would lose the
+	// saved selection permanently.
+	if selectedTreeNodePath != "" && len(nodes) > 0 {
 		// Search in snapshot
 		foundIndex := -1
 
@@ -125,8 +132,20 @@ func renderTreeView(gtx C, app *appstate.State, theme *material.Theme) D {
 			if app.Tree.Nodes[foundIndex].Path == selectedTreeNodePath {
 				app.Tree.SelectedNode = foundIndex
 				app.Tree.SelectedNodePath = ""
+
+				// Directly position list to show the restored item.
+				// Height caches are empty at this point (tree just rebuilt),
+				// so the deferred NeedScrollToSel calculation is unreliable.
+				// Position the item a few rows from the top for context.
+				first := max(foundIndex-treeRestoreContextRows, 0)
+
+				app.Tree.List.Position.First = first
+				app.Tree.List.Position.Offset = 0
 			}
-		} else {
+		} else if foundIndex < 0 {
+			// Path genuinely not found in current nodes — clear it.
+			// When foundIndex >= 0 but >= len(app.Tree.Nodes), the tree
+			// was rebuilt concurrently; keep the path for retry next frame.
 			app.Tree.SelectedNodePath = ""
 		}
 

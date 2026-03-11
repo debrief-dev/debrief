@@ -172,6 +172,39 @@ static void x11_activate_window(unsigned long wid) {
 	XMapRaised(dpy, (Window)wid);
 	XFlush(dpy);
 }
+
+// x11_get_geometry returns the window geometry (x, y, width, height)
+// for the window with the given title. Returns 1 on success, 0 on failure.
+// Coordinates are translated to root-window (absolute screen) coordinates.
+static int x11_get_geometry(const char *title, int *x, int *y, int *w, int *h) {
+	Window win = find_window_by_name(title);
+	if (!win) return 0;
+
+	XWindowAttributes attr;
+	if (!XGetWindowAttributes(dpy, win, &attr)) return 0;
+
+	// Translate to root-window coordinates
+	Window child;
+	int rx, ry;
+	XTranslateCoordinates(dpy, win, DefaultRootWindow(dpy), 0, 0, &rx, &ry, &child);
+
+	*x = rx;
+	*y = ry;
+	*w = attr.width;
+	*h = attr.height;
+	return 1;
+}
+
+// x11_move_resize moves and resizes the window with the given title.
+static int x11_move_resize(const char *title, int x, int y, int w, int h) {
+	Window win = find_window_by_name(title);
+	if (!win) return 0;
+
+	XMoveResizeWindow(dpy, win, x, y, w, h);
+	XFlush(dpy);
+	return 1;
+}
+
 */
 import "C"
 
@@ -226,6 +259,16 @@ func initPlatformController(_ *Controller) {
 // On X11, uses Xlib directly (bypasses Gio state tracking issues).
 // Must be called with c.mu held.
 func (c *Controller) hideWindow() error {
+	// Capture geometry before the window is hidden or destroyed.
+	// On Wayland, ActionClose removes the window immediately, so
+	// the geometry must be saved while the window still exists.
+	if x11Available {
+		if x, y, w, h, ok := c.getWindowGeometry(); ok {
+			c.savedGeom = &Geometry{X: x, Y: y, W: w, H: h}
+			log.Printf("Window: Saved geometry before hide %dx%d+%d+%d", w, h, x, y)
+		}
+	}
+
 	if isWaylandSession {
 		if c.win == nil {
 			return errors.New("window reference is nil")
@@ -320,4 +363,33 @@ func restorePreviousWindow(handle windowHandle) error {
 	log.Printf("Window: Restored window ID: %d", handle)
 
 	return nil
+}
+
+// getWindowGeometry returns the window's screen position and size.
+func (c *Controller) getWindowGeometry() (x, y, w, h int, ok bool) {
+	if !x11Available {
+		return 0, 0, 0, 0, false
+	}
+
+	cTitle := C.CString(c.title)
+	defer C.free(unsafe.Pointer(cTitle))
+
+	var cx, cy, cw, ch C.int
+	if C.x11_get_geometry(cTitle, &cx, &cy, &cw, &ch) == 0 {
+		return 0, 0, 0, 0, false
+	}
+
+	return int(cx), int(cy), int(cw), int(ch), true
+}
+
+// setWindowGeometry moves and resizes the window.
+func (c *Controller) setWindowGeometry(x, y, w, h int) bool {
+	if !x11Available {
+		return false
+	}
+
+	cTitle := C.CString(c.title)
+	defer C.free(unsafe.Pointer(cTitle))
+
+	return C.x11_move_resize(cTitle, C.int(x), C.int(y), C.int(w), C.int(h)) != 0
 }

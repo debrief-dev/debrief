@@ -209,6 +209,24 @@ func updateStatisticsNavigationState(app *appstate.State, topCommands []model.Ra
 		app.Stats.SelectedIndex = -1
 	}
 
+	// Restore selection by text after window recreation.
+	// Search primary list (matching RestoreKind) first, then fallback.
+	if app.Stats.RestoreText != "" && totalItems > 0 {
+		primary, primaryOffset := topCommands, 0
+
+		fallback, fallbackOffset := prefixList, len(topCommands)
+		if app.Stats.RestoreKind != appstate.StatsRestoreCommand {
+			primary, primaryOffset, fallback, fallbackOffset = fallback, fallbackOffset, primary, primaryOffset
+		}
+
+		if !findStatEntryByLabel(app, primary, primaryOffset) {
+			findStatEntryByLabel(app, fallback, fallbackOffset)
+		}
+
+		app.Stats.RestoreText = ""
+		app.Stats.NeedInitialSel = false
+	}
+
 	// Auto-select first item when flag is set (on tab switch)
 	if app.Stats.NeedInitialSel && totalItems > 0 {
 		app.Stats.SelectedIndex = 0
@@ -344,6 +362,21 @@ func renderStatisticsLayout(gtx C, app *appstate.State, theme *material.Theme, t
 			}),
 		)
 	})
+}
+
+// findStatEntryByLabel searches entries for one matching app.Stats.RestoreText
+// and, if found, sets the selection index to offset+i. Returns true on match.
+func findStatEntryByLabel(app *appstate.State, entries []model.RankedEntry, offset int) bool {
+	for i, entry := range entries {
+		if entry.Label == app.Stats.RestoreText {
+			app.Stats.SelectedIndex = offset + i
+			app.NeedScrollToSel = true
+
+			return true
+		}
+	}
+
+	return false
 }
 
 // renderStatisticsTab renders the statistics view with proper synchronization.

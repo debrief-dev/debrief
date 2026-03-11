@@ -14,9 +14,11 @@ import (
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	appstate "github.com/debrief-dev/debrief/app"
@@ -36,6 +38,19 @@ import (
 type windowLifecycle struct {
 	ready     chan struct{} // Signals when window OS handle is ready
 	destroyed chan struct{} // Signals when window is fully destroyed
+}
+
+// savedUIState holds UI state preserved across window recreations.
+// On Wayland, hiding destroys and recreates the window; this prevents
+// losing search text, selected entity, active tab, and shell filter.
+type savedUIState struct {
+	SearchQuery      string
+	ActiveTab        model.Tab
+	ShellFilter      map[model.Shell]bool
+	SelectedNodePath string                    // Tree tab: path-based selection survives rebuilds
+	SelectedCmd      string                    // Commands tab: command text for selection restoration
+	SelectedStatText string                    // Statistics tab: selected item text for restoration
+	SelectedStatKind appstate.StatsRestoreKind // Which statistics list the item belongs to
 }
 
 func main() {
@@ -235,6 +250,8 @@ func main() {
 			log.Printf("Warning: Failed to save config: %v", err)
 		}
 
+		var saved *savedUIState
+
 		for {
 			// Create lifecycle channels for this window
 			lifecycle := &windowLifecycle{
@@ -246,6 +263,7 @@ func main() {
 			win.Option(app.Title(ui.WindowTitle))
 			win.Option(app.Decorated(false))
 			win.Option(app.MinSize(ui.MinWidth, ui.MinHeight))
+
 			log.Println("Window created, starting main loop")
 
 			// Update shared window reference
@@ -278,8 +296,22 @@ func main() {
 				isFirstWindow = false
 			}
 
-			// Run the window event loop
-			run(win, windowController, windowSignalChan, lifecycle, cfg, configPath, sourceManager, hotkeyManager, hotkeyPresets, quitApp, *pprofEnabled, &signalDirty)
+			// Run the window event loop (returns saved UI state for restoration)
+			saved = run(&runParams{
+				win:              win,
+				windowController: windowController,
+				windowSignalChan: windowSignalChan,
+				lifecycle:        lifecycle,
+				cfg:              cfg,
+				configPath:       configPath,
+				sourceManager:    sourceManager,
+				hotkeyManager:    hotkeyManager,
+				hotkeyPresets:    hotkeyPresets,
+				quitApp:          quitApp,
+				pprofEnabled:     *pprofEnabled,
+				signalDirty:      &signalDirty,
+				saved:            saved,
+			})
 
 			// Window closed normally (close button clicked)
 			log.Println("Window closed, waiting for cleanup before recreation")
@@ -470,24 +502,31 @@ func waitForWaylandShow(hiddenMu *sync.Mutex, hidden *bool, recreateNotify <-cha
 	hiddenMu.Unlock()
 }
 
-func run(
-	win *app.Window,
-	windowController *window.Controller,
-	windowSignalChan chan<- string,
-	lifecycle *windowLifecycle,
-	cfg *config.Config,
-	configPath string,
-	sourceManager *shell.ShellManager,
-	hotkeyManager *hotkey.Manager,
-	hotkeyPresets []hotkey.Preset,
-	quitApp func(),
-	pprofEnabled bool,
-	signalDirty *atomic.Bool,
-) {
+// runParams groups all parameters for the window event loop.
+type runParams struct {
+	win              *app.Window
+	windowController *window.Controller
+	windowSignalChan chan<- string
+	lifecycle        *windowLifecycle
+	cfg              *config.Config
+	configPath       string
+	sourceManager    *shell.ShellManager
+	hotkeyManager    *hotkey.Manager
+	hotkeyPresets    []hotkey.Preset
+	quitApp          func()
+	pprofEnabled     bool
+	signalDirty      *atomic.Bool
+	saved            *savedUIState
+}
+
+func run(p *runParams) *savedUIState {
+	// Alias frequently-used params for brevity.
+	win := p.win
+	cfg := p.cfg
 	// Defer signaling that window is destroyed
 	defer func() {
 		log.Println("Window event loop ended, signaling destruction")
-		close(lifecycle.destroyed)
+		close(p.lifecycle.destroyed)
 	}()
 
 	// Track if we've signaled window ready (for first frame)
@@ -505,12 +544,12 @@ func run(
 	appState := &appstate.State{
 		Window:        win,
 		Config:        cfg,
-		ConfigPath:    configPath,
-		SourceManager: sourceManager,
+		ConfigPath:    p.configPath,
+		SourceManager: p.sourceManager,
 		HideWindowFunc: func() {
 			sendHide := func() {
 				select {
-				case windowSignalChan <- "hide_and_restore":
+				case p.windowSignalChan <- "hide_and_restore":
 					log.Println("Hide and restore signal sent to window controller")
 				default:
 					log.Println("Warning: Window signal channel full, hide signal dropped")
@@ -527,11 +566,11 @@ func run(
 		},
 		QuitFunc: func() {
 			log.Println("Ctrl+Q pressed - exiting application")
-			quitApp()
+			p.quitApp()
 		},
 
 		Commands: appstate.CommandsState{
-			List:           widget.List{List: layout.List{Axis: layout.Vertical}},
+			List:           widget.List{List: layout.List{Axis: layout.Vertical, ScrollToEnd: true}},
 			SelectedIndex:  -1,
 			HoveredIndex:   -1,
 			NeedInitialSel: true, // Auto-select last command on first load
@@ -561,8 +600,8 @@ func run(
 		},
 
 		Hotkeys: appstate.HotkeyState{
-			Manager:          hotkeyManager,
-			Presets:          hotkeyPresets,
+			Manager:          p.hotkeyManager,
+			Presets:          p.hotkeyPresets,
 			PresetClickables: make([]widget.Clickable, hotkey.PresetCount),
 			SelectedPresetID: cfg.HotkeyPreset,
 		},
@@ -582,6 +621,37 @@ func run(
 	// every character. Height is constrained in bar_search.go instead.
 	appState.SearchEditor.Submit = false
 
+	// Restore UI state from previous window (e.g. after Wayland hide→recreate)
+	if p.saved != nil {
+		appState.Tabs.Current = p.saved.ActiveTab
+		appState.ShellFilter = p.saved.ShellFilter
+
+		if p.saved.SearchQuery != "" {
+			appState.SearchEditor.SetText(p.saved.SearchQuery)
+			// Move cursor to end of restored text (SetText leaves it at the start)
+			end := appState.SearchEditor.Len()
+			appState.SearchEditor.SetCaret(end, end)
+			appState.CurrentQuery = p.saved.SearchQuery
+			appState.RequestSearchFocus = true
+		}
+
+		if p.saved.SelectedNodePath != "" {
+			appState.Tree.SelectedNodePath = p.saved.SelectedNodePath
+			appState.Tree.NeedInitialSel = false
+		}
+
+		if p.saved.SelectedCmd != "" {
+			appState.Commands.RestoreCmd = p.saved.SelectedCmd
+			appState.Commands.NeedInitialSel = false
+		}
+
+		if p.saved.SelectedStatText != "" {
+			appState.Stats.RestoreText = p.saved.SelectedStatText
+			appState.Stats.RestoreKind = p.saved.SelectedStatKind
+			appState.Stats.NeedInitialSel = false
+		}
+	}
+
 	// Start background workers scoped to this window's lifetime.
 	// Each worker selects on its per-window shutdown channel
 	// (StoreShutdown, TreeRebuildShutdown, StatsRebuildShutdown),
@@ -600,6 +670,9 @@ func run(
 	// re-mark the window as visible after hiding.
 	prevWindowMode := app.Windowed
 
+	// Track last frame metric for Dp conversion on DestroyEvent.
+	var lastFrameMetric unit.Metric
+
 	// Per-frame allocation tracking.
 	// Measures ALL allocations (UI + background goroutines) between frames.
 	// Gated behind --pprof because ReadMemStats stops the world.
@@ -610,7 +683,7 @@ func run(
 		lastStats   runtime.MemStats
 	)
 
-	if pprofEnabled {
+	if p.pprofEnabled {
 		runtime.ReadMemStats(&lastStats)
 	}
 
@@ -625,7 +698,7 @@ func run(
 		// By the time we reach here, nextEvent() has run and re-enabled
 		// mayInvalidate, so this Invalidate() will succeed and ensure a new
 		// FrameEvent is delivered.
-		if appState.Dirty.Swap(false) || signalDirty.Swap(false) {
+		if appState.Dirty.Swap(false) || p.signalDirty.Swap(false) {
 			win.Invalidate()
 		}
 
@@ -638,6 +711,54 @@ func run(
 			// Close button clicked - minimize to tray instead of quit
 			log.Println("Window close button clicked, minimizing to tray (app continues running)")
 
+			// Save window geometry via X11 before the window is destroyed (position on X11)
+			p.windowController.SaveGeometry()
+
+			// Save window size to config (Dp, survives restarts)
+			if appState.LastWindowSize.X > 0 && appState.LastWindowSize.Y > 0 {
+				cfg.WindowW = int(lastFrameMetric.PxToDp(appState.LastWindowSize.X))
+				cfg.WindowH = int(lastFrameMetric.PxToDp(appState.LastWindowSize.Y))
+
+				if err := cfg.SaveConfig(p.configPath); err != nil {
+					log.Printf("Warning: Failed to save window size: %v", err)
+				}
+			}
+
+			// Capture UI state before destruction for restoration on recreation
+			snapshot := &savedUIState{
+				SearchQuery: appState.SearchEditor.Text(),
+				ActiveTab:   appState.Tabs.Current,
+				ShellFilter: appState.ShellFilter,
+			}
+
+			// Save tree selection: SelectedNodePath is cleared after restoration,
+			// so read the actual path from the current SelectedNode index.
+			appState.StoreMu.RLock()
+
+			if idx := appState.Tree.SelectedNode; idx >= 0 && idx < len(appState.Tree.Nodes) {
+				snapshot.SelectedNodePath = appState.Tree.Nodes[idx].Path
+			}
+
+			// Save selected command text for restoration
+			if idx := appState.Commands.SelectedIndex; idx >= 0 && idx < len(appState.Commands.DisplayCommands) {
+				snapshot.SelectedCmd = appState.Commands.DisplayCommands[idx].Command
+			}
+
+			// Save selected statistics item for restoration
+			switch idx := appState.Stats.SelectedIndex; {
+			case idx >= 0 && idx < appState.Stats.CommandCount && idx < len(appState.Stats.TopCommands):
+				snapshot.SelectedStatText = appState.Stats.TopCommands[idx]
+				snapshot.SelectedStatKind = appstate.StatsRestoreCommand
+			case idx >= appState.Stats.CommandCount:
+				prefixIdx := idx - appState.Stats.CommandCount
+				if prefixIdx < len(appState.Stats.TopPrefixes) {
+					snapshot.SelectedStatText = appState.Stats.TopPrefixes[prefixIdx]
+					snapshot.SelectedStatKind = appstate.StatsRestorePrefix
+				}
+			}
+
+			appState.StoreMu.RUnlock()
+
 			// Signal rebuild workers to shutdown for this window cycle
 			close(appState.Tree.RebuildShutdown)
 			close(appState.Stats.RebuildShutdown)
@@ -645,10 +766,10 @@ func run(
 
 			// Mark as closed for signal handling
 			// NOTE: Don't try to hide() - window is already being destroyed by OS
-			windowController.MarkClosed()
+			p.windowController.MarkClosed()
 
 			// Exit run() to allow immediate recreation in hidden state
-			return
+			return snapshot
 
 		case app.ConfigEvent:
 			// Detect external un-minimize (e.g. user clicks taskbar on Wayland).
@@ -657,7 +778,7 @@ func run(
 			// SW_HIDE/orderOut (Mode stays Windowed, never becomes Minimized).
 			newMode := ev.Config.Mode
 			if prevWindowMode == app.Minimized && newMode != app.Minimized {
-				windowController.SyncVisible(true)
+				p.windowController.SyncVisible(true)
 			}
 
 			prevWindowMode = newMode
@@ -668,8 +789,30 @@ func run(
 				windowHandleSignaled = true
 
 				log.Println("First frame rendered, signaling window handle ready")
-				close(lifecycle.ready)
+				close(p.lifecycle.ready)
+
+				// Re-apply saved size via win.Option() (not initialOpts).
+				// Gio's init() adds a non-zero decoHeight to initialOpts
+				// even with Decorated(false), causing the window to grow
+				// by ~28px per save/restore cycle. Calling win.Option()
+				// after the driver is ready goes through the w.Run() path
+				// which correctly resets decoHeight=0 for Decorated(false).
+				if cfg.WindowW > 0 && cfg.WindowH > 0 {
+					win.Option(app.Size(unit.Dp(cfg.WindowW), unit.Dp(cfg.WindowH)))
+				}
+
+				// Restore window position or center on first launch.
+				// Use Gio's Perform(ActionCenter) which internally calls
+				// win.Run() to execute on the window thread. Calling
+				// Win32 SetWindowPos directly from inside a FrameEvent
+				// handler deadlocks: Gio's window thread is blocked in
+				// deliverEvent() waiting for Frame(), not pumping messages.
+				if !p.windowController.RestoreGeometry() {
+					win.Perform(system.ActionCenter)
+				}
 			}
+
+			lastFrameMetric = ev.Metric
 
 			gtx := app.NewContext(&ops, ev)
 			ui.RenderFrame(gtx, appState, theme)
@@ -685,8 +828,7 @@ func run(
 				go ui.ProcessHotkeyUpdate(appState)
 			}
 
-			// Log allocation stats
-			if pprofEnabled {
+			if p.pprofEnabled {
 				var currentStats runtime.MemStats
 				runtime.ReadMemStats(&currentStats)
 

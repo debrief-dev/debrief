@@ -209,11 +209,8 @@ func initializeCommandsLocked(state *appstate.State) {
 		executeSearchLocked(state, state.CurrentQuery)
 	}
 
-	// Set scroll position to bottom (newest visible at bottom)
-	if len(state.Commands.DisplayCommands) > 0 {
-		state.Commands.List.Position.First = len(state.Commands.DisplayCommands) - 1
-		state.Commands.List.Position.Offset = 0
-	}
+	// ScrollToEnd on the List handles pinning to bottom automatically.
+	// Do NOT write to List.Position here — it is UI-thread-only state.
 }
 
 // RequestTreeRebuild signals the background worker to rebuild the tree

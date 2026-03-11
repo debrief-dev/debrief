@@ -143,6 +143,16 @@ func captureForegroundWindow() windowHandle {
 	return windowHandle(pid)
 }
 
+// getWindowGeometry is not implemented on macOS (window is not recreated by hotkey).
+func (c *Controller) getWindowGeometry() (x, y, w, h int, ok bool) {
+	return 0, 0, 0, 0, false
+}
+
+// setWindowGeometry is not implemented on macOS (window is not recreated by hotkey).
+func (c *Controller) setWindowGeometry(_, _, _, _ int) bool {
+	return false
+}
+
 // restorePreviousWindow restores a previously captured application to foreground
 func restorePreviousWindow(handle windowHandle) error {
 	if handle == invalidWindowHandle {
