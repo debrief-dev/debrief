@@ -41,14 +41,6 @@ func ExpandPath(path string) string {
 	return path
 }
 
-func FileExists(path string) bool {
-	if info, err := os.Stat(path); err == nil {
-		return !info.IsDir()
-	}
-
-	return false
-}
-
 func UserHomeDir() string {
 	if home, err := os.UserHomeDir(); err == nil {
 		return home

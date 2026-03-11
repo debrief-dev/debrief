@@ -25,6 +25,7 @@ import (
 	"github.com/debrief-dev/debrief/data/model"
 	"github.com/debrief-dev/debrief/data/shell"
 	"github.com/debrief-dev/debrief/font"
+	"github.com/debrief-dev/debrief/infra/autostart"
 	"github.com/debrief-dev/debrief/infra/config"
 	"github.com/debrief-dev/debrief/infra/hotkey"
 	"github.com/debrief-dev/debrief/infra/platform"
@@ -609,7 +610,8 @@ func run(p *runParams) *savedUIState {
 		ShellFilter: nil,                                // nil = show all shells
 		ShellBadges: make(map[string]*widget.Clickable), // Initialize badge widgets map
 
-		SettingsList: widget.List{List: layout.List{Axis: layout.Vertical}},
+		SettingsList:     widget.List{List: layout.List{Axis: layout.Vertical}},
+		AutoStartEnabled: syncAutoStartState(cfg),
 
 		StoreShutdown: make(chan struct{}), // Unbuffered: signal store/polling goroutine to stop
 	}
@@ -828,6 +830,13 @@ func run(p *runParams) *savedUIState {
 				go ui.ProcessHotkeyUpdate(appState)
 			}
 
+			if appState.AutoStartNeedsUpdate && !appState.AutoStartUpdating {
+				appState.AutoStartNeedsUpdate = false
+
+				appState.AutoStartUpdating = true
+				go ui.ProcessAutostartUpdate(appState)
+			}
+
 			if p.pprofEnabled {
 				var currentStats runtime.MemStats
 				runtime.ReadMemStats(&currentStats)
@@ -847,4 +856,30 @@ func run(p *runParams) *savedUIState {
 			}
 		}
 	}
+}
+
+// syncAutoStartState reconciles the OS autostart state with the config value.
+// On first run (config says enabled, OS says disabled), it registers autostart.
+// Returns the effective autostart state.
+func syncAutoStartState(cfg *config.Config) bool {
+	enabled, err := autostart.IsEnabled()
+	if err != nil {
+		log.Printf("Failed to check autostart state: %v, using config value", err)
+
+		return cfg.AutoStart
+	}
+
+	if cfg.AutoStart && !enabled {
+		if err := autostart.Enable(); err != nil {
+			log.Printf("Failed to enable autostart on first run: %v", err)
+
+			return false
+		}
+
+		log.Printf("Autostart enabled on first run")
+
+		return true
+	}
+
+	return enabled
 }

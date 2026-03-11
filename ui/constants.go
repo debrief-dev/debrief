@@ -97,6 +97,12 @@ const (
 	HotKeyCardSuccess         = "Hotkey updated to "
 	HotKeyCardFailure         = "Failed to register hotkey: %v"
 	HotKeyCardFailureDueToCfg = "Warning: Hotkey updated but config save failed: %v"
+
+	AutoStartCardTitle       = "Start on Boot"
+	AutoStartCardDescription = "Automatically start Debrief when you log in to your computer"
+	AutoStartSuccess         = "Autostart updated successfully"
+	AutoStartFailure         = "Failed to update autostart: %v"
+	AutoStartFailureCfg      = "Warning: Autostart updated but config save failed: %v"
 )
 
 // ---
@@ -195,6 +201,8 @@ const (
 	ColorErrorRed = 255
 	// ColorErrorGreen is the RGB green channel value for error messages
 	ColorErrorGreen = 100
+	// ColorErrorBlue is the RGB blue channel value for error messages
+	ColorErrorBlue = 100
 	// ColorSuccessRed is the RGB red channel value for success messages
 	ColorSuccessRed = 100
 	// ColorSuccessGreen is the RGB green channel value for success messages
@@ -236,6 +244,14 @@ const (
 	TreePrefixFadeSteps = 8
 	// CircleIndicatorSize is the size for circular radio button indicators
 	CircleIndicatorSize = unit.Dp(16)
+	// CheckboxSize is the size for checkbox indicators
+	CheckboxSize = unit.Dp(18)
+	// CheckboxRadius is the corner radius for checkbox indicators
+	CheckboxRadius = unit.Dp(3)
+	// CheckboxMarginDivisor controls X mark inset relative to checkbox size (size / 4 = 25% margin)
+	CheckboxMarginDivisor = 4
+	// CheckboxStrokeDivisor controls X mark stroke width relative to checkbox size (size / 8)
+	CheckboxStrokeDivisor = 8
 	// searchEditorMaxHeight is the max height for the search editor in dp
 	searchEditorMaxHeight = 28
 	// itemsPerPage is the number of items to jump on PageUp/PageDown in command/stat lists

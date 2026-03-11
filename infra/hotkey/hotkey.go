@@ -84,29 +84,6 @@ func (m *Manager) stopListener() {
 	}
 }
 
-// Unregister unregisters the hotkey
-func (m *Manager) Unregister() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if !m.registered {
-		return nil
-	}
-
-	log.Println("Unregistering hotkey")
-
-	m.stopListener()
-
-	if err := m.b.Unregister(); err != nil {
-		log.Printf("Failed to unregister hotkey: %v", err)
-		return fmt.Errorf("failed to unregister global hotkey: %w", err)
-	}
-
-	m.registered = false
-
-	return nil
-}
-
 // StringToModifier converts string to hk.Modifier
 func StringToModifier(s string) (hk.Modifier, error) {
 	switch s {
