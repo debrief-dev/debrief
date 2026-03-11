@@ -141,6 +141,10 @@ func executeSearch(app *appstate.State, query string) {
 
 	app.StoreMu.Unlock()
 
+	// Re-pin list to bottom (ScrollToEnd mode). Safe to write Position
+	// here because executeSearch is only called from the UI thread.
+	app.Commands.List.Position.BeforeEnd = false
+
 	app.Window.Invalidate()
 }
 
@@ -164,12 +168,6 @@ func executeSearchLocked(app *appstate.State, query string) {
 			app.Commands.DisplayCommands = filtered
 		} else {
 			app.Commands.DisplayCommands = app.Commands.LoadedCommands
-		}
-
-		// Scroll to bottom (newest commands at the bottom)
-		if len(app.Commands.DisplayCommands) > 0 {
-			app.Commands.List.Position.First = len(app.Commands.DisplayCommands) - 1
-			app.Commands.List.Position.Offset = 0
 		}
 
 		app.SearchMatchingCommands = nil
@@ -208,11 +206,8 @@ func executeSearchLocked(app *appstate.State, query string) {
 	app.Commands.DisplayCommands = display
 	log.Printf("Search completed - found %d matches", len(display))
 
-	// Scroll to bottom (best match at the bottom, near search bar)
-	// and auto-select the best match
+	// Auto-select the best match
 	if len(app.Commands.DisplayCommands) > 0 {
-		app.Commands.List.Position.First = len(app.Commands.DisplayCommands) - 1
-		app.Commands.List.Position.Offset = 0
 		app.Commands.NeedInitialSel = true
 	}
 

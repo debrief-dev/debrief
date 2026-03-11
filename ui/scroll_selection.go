@@ -266,8 +266,10 @@ func syncTreeToCommandSelection(app *appstate.State) {
 
 	if foundIndex >= 0 {
 		app.Commands.SelectedIndex = foundIndex
-		// Place target at top of viewport directly — avoids unreliable height
-		// estimation for items far from the previously visible range.
+		// Break out of ScrollToEnd pinning and place target at top of viewport
+		// directly — avoids unreliable height estimation for items far from
+		// the previously visible range.
+		app.Commands.List.Position.BeforeEnd = true
 		app.Commands.List.Position.First = foundIndex
 		app.Commands.List.Position.Offset = 0
 
@@ -284,8 +286,10 @@ func syncTreeToCommandSelection(app *appstate.State) {
 
 	if fuzzyFoundIndex >= 0 {
 		app.Commands.SelectedIndex = fuzzyFoundIndex
-		// Place target at top of viewport directly — avoids unreliable height
-		// estimation for items far from the previously visible range.
+		// Break out of ScrollToEnd pinning and place target at top of viewport
+		// directly — avoids unreliable height estimation for items far from
+		// the previously visible range.
+		app.Commands.List.Position.BeforeEnd = true
 		app.Commands.List.Position.First = fuzzyFoundIndex
 		app.Commands.List.Position.Offset = 0
 	} else {

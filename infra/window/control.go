@@ -15,6 +15,11 @@ const (
 	LinuxClipboardDelay = 150 * time.Millisecond
 )
 
+// Geometry holds a window's screen position and size in pixels.
+type Geometry struct {
+	X, Y, W, H int
+}
+
 // Controller manages window visibility across platforms
 type Controller struct {
 	title      string
@@ -24,6 +29,7 @@ type Controller struct {
 	onShowHide func(visible bool)
 	prevWindow windowHandle // stores the previous foreground window
 	win        *app.Window  // Gio window reference for platform control
+	savedGeom  *Geometry    // saved geometry for restoration after recreation
 }
 
 // NewController creates a new window controller
@@ -243,6 +249,49 @@ func (c *Controller) IsClosed() bool {
 	defer c.mu.RUnlock()
 
 	return c.closed
+}
+
+// SaveGeometry captures the current window geometry (position + size) via
+// platform APIs. Call before the window is destroyed.
+// No-op if geometry was already saved (e.g. by hideWindow on Linux).
+func (c *Controller) SaveGeometry() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.savedGeom != nil {
+		return // Already saved (e.g. by hideWindow before Wayland ActionClose)
+	}
+
+	x, y, w, h, ok := c.getWindowGeometry()
+	if !ok {
+		return
+	}
+
+	c.savedGeom = &Geometry{X: x, Y: y, W: w, H: h}
+
+	log.Printf("Window: Saved geometry %dx%d+%d+%d", w, h, x, y)
+}
+
+// RestoreGeometry applies previously saved geometry to the current window.
+// Call after the window handle is ready (first frame rendered).
+// Consumes the saved geometry so the next window lifecycle saves fresh values.
+// Returns true if geometry was restored, false if no saved geometry exists.
+func (c *Controller) RestoreGeometry() bool {
+	c.mu.Lock()
+	g := c.savedGeom
+	c.savedGeom = nil // Consumed; next hide/close will save fresh values
+	c.mu.Unlock()
+
+	if g == nil {
+		return false
+	}
+
+	if c.setWindowGeometry(g.X, g.Y, g.W, g.H) {
+		log.Printf("Window: Restored geometry %dx%d+%d+%d", g.W, g.H, g.X, g.Y)
+		return true
+	}
+
+	return false
 }
 
 // HideAndRestorePrevious hides the window and restores the previous foreground window.

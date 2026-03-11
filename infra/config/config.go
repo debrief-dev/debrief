@@ -15,6 +15,11 @@ type Config struct {
 	Version int `json:"version"`
 
 	HotkeyPreset int `json:"hotkeyPreset"` // Preset index (0, 1, or 2)
+
+	// Window geometry persisted across restarts (pixels).
+	// Zero values mean "use default".
+	WindowW int `json:"windowW,omitempty"`
+	WindowH int `json:"windowH,omitempty"`
 }
 
 // DefaultConfig returns configuration with sensible defaults.

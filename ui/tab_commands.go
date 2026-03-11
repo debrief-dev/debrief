@@ -159,18 +159,40 @@ func renderCommandList(gtx C, app *appstate.State, theme *material.Theme) D {
 			app.NeedScrollToSel = false
 		}
 
+		// Restore selection by command text after window recreation
+		if app.Commands.RestoreCmd != "" && len(commands) > 0 {
+			for i, cmd := range commands {
+				if cmd.Command == app.Commands.RestoreCmd {
+					app.Commands.SelectedIndex = i
+
+					// Position directly instead of NeedScrollToSel. On fresh state
+					// Position.First is 0, which makes the smart scroll miscalculate
+					// visibility and conflict with ScrollToEnd pinning.
+					app.Commands.List.Position.BeforeEnd = true
+					app.Commands.List.Position.First = i
+					app.Commands.List.Position.Offset = 0
+
+					break
+				}
+			}
+
+			app.Commands.RestoreCmd = ""
+			app.Commands.NeedInitialSel = false
+		}
+
 		// Set initial selection to last item (newest at bottom) ONLY on first load or tab switch
 		// This allows user to deselect intentionally without forcing re-selection
 		if app.Commands.NeedInitialSel && app.Commands.SelectedIndex == -1 && len(commands) > 0 {
 			app.Commands.SelectedIndex = len(commands) - 1
-			app.NeedScrollToSel = true
 			app.Commands.NeedInitialSel = false
+			// ScrollToEnd pins list to bottom automatically — no Position write needed.
 		}
 
 		// Smart scroll to selected item when explicitly requested
 		if app.NeedScrollToSel && app.Commands.SelectedIndex >= 0 && app.Commands.SelectedIndex < len(commands) {
 			// Use variable-height scroll calculation with cached heights
 			if newFirst, shouldScroll := calculateSmartScrollPositionVariable(gtx, app.Commands.List.Position.First, app.Commands.SelectedIndex, app.Commands.ItemHeights); shouldScroll {
+				app.Commands.List.Position.BeforeEnd = true // Break out of ScrollToEnd pinning
 				app.Commands.List.Position.First = newFirst
 				app.Commands.List.Position.Offset = 0
 			}
