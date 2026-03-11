@@ -9,8 +9,10 @@ import (
 )
 
 const (
-	desktopFileName = "debrief.desktop"
-	autostartDir    = "autostart"
+	desktopFileName  = "debrief.desktop"
+	autostartDir     = "autostart"
+	autostartDirPerm = 0o750
+	desktopFilePerm  = 0o600
 )
 
 // Enable creates an XDG autostart .desktop file so the app starts on login.
@@ -26,7 +28,7 @@ func Enable() error {
 	}
 
 	dir := filepath.Dir(desktopPath)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	if err := os.MkdirAll(dir, autostartDirPerm); err != nil {
 		return fmt.Errorf("failed to create autostart directory: %w", err)
 	}
 
@@ -38,7 +40,7 @@ func Enable() error {
 		"StartupNotify=false\n" +
 		"Terminal=false\n"
 
-	if err := os.WriteFile(desktopPath, []byte(content), 0o600); err != nil {
+	if err := os.WriteFile(desktopPath, []byte(content), desktopFilePerm); err != nil {
 		return fmt.Errorf("failed to write autostart desktop file: %w", err)
 	}
 

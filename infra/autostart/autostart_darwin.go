@@ -11,9 +11,11 @@ import (
 )
 
 const (
-	launchAgentLabel = "com.debrief"
-	plistName        = launchAgentLabel + ".plist"
-	plistDir         = "Library/LaunchAgents"
+	launchAgentLabel    = "com.debrief"
+	plistName           = launchAgentLabel + ".plist"
+	plistDir            = "Library/LaunchAgents"
+	launchAgentsDirPerm = 0o750
+	plistFilePerm       = 0o600
 )
 
 // Enable registers the app as a macOS LaunchAgent to start on login.
@@ -29,7 +31,7 @@ func Enable() error {
 	}
 
 	dir := filepath.Dir(plistPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, launchAgentsDirPerm); err != nil {
 		return fmt.Errorf("failed to create LaunchAgents directory: %w", err)
 	}
 
@@ -54,7 +56,7 @@ func Enable() error {
 </plist>
 `
 
-	if err := os.WriteFile(plistPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(plistPath, []byte(content), plistFilePerm); err != nil {
 		return fmt.Errorf("failed to write LaunchAgent plist: %w", err)
 	}
 
