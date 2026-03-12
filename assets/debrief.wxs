@@ -1,0 +1,65 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="Debrief"
+    Manufacturer="debrief-dev"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="bffcc9b4-9146-49c2-9c4a-e0a3bebbd1c3"
+    Scope="perMachine">
+
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of Debrief is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="Debrief">
+        <Component Id="MainExecutable" Guid="9ee4b037-222a-45cb-bcf9-bde6a50a4a34">
+          <File Id="DebriefExe"
+                Source="$(var.ExePath)"
+                KeyPath="yes" />
+        </Component>
+        <Component Id="LicenseFile" Guid="b77d7e71-d2bd-43e4-a2d6-601860ec015a">
+          <File Id="LicenseFile"
+                Source="$(var.LicensePath)"
+                KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="590d736f-b3ee-4ffb-a240-bf70c43bbd74">
+        <Shortcut Id="DebriefShortcut"
+                  Name="Debrief"
+                  Target="[INSTALLFOLDER]Debrief.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\Debrief"
+                       Name="StartMenuShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+        <RemoveFolder Id="CleanupStartMenu" On="uninstall" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Complete" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="LicenseFile" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <CustomAction Id="LaunchApplication"
+                  ExeCommand=""
+                  FileRef="DebriefExe"
+                  Impersonate="yes"
+                  Return="asyncNoWait" />
+    <InstallExecuteSequence>
+      <Custom Action="LaunchApplication" After="InstallFinalize"
+              Condition="NOT Installed OR REINSTALL OR UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

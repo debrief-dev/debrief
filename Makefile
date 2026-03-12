@@ -1,4 +1,6 @@
 TAG_NAME?=$(shell git describe --tags --dirty --abbrev=0 2>/dev/null || echo $(shell git rev-parse --short HEAD)-dirty)
+# MSI requires strictly numeric X.Y.Z version (no "v" prefix, no suffixes like "-dirty" or "-rc1")
+MSI_VERSION=$(shell echo $(TAG_NAME) | sed 's/^v//' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
 APP_NAME="Debrief"
 APP_NAME_LOWERCASE="debrief"
 LINUX_ARCH?=amd64
@@ -149,6 +151,25 @@ build_windows:
 	gogio -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=${TAG_NAME}" -target=windows -arch=amd64 -o "dist/amd64/${APP_NAME}.exe" .
 	gogio -ldflags="-X github.com/debrief-dev/debrief/infra/config.AppVersion=${TAG_NAME}" -target=windows -arch=arm64 -o "dist/arm64/${APP_NAME}.exe" .
 	rm -f *.syso
+
+
+.PHONY: build_windows_msi
+build_windows_msi:
+	@echo "Building Windows MSI installers..."
+	wix build assets/debrief.wxs \
+		-d ProductVersion=$(MSI_VERSION) \
+		-d ExePath=dist/amd64/${APP_NAME}.exe \
+		-d IconPath=assets/appicon.ico \
+		-d LicensePath=LICENSE \
+		-arch x64 \
+		-o dist/${APP_NAME_LOWERCASE}-windows-$(TAG_NAME)-amd64.msi
+	wix build assets/debrief.wxs \
+		-d ProductVersion=$(MSI_VERSION) \
+		-d ExePath=dist/arm64/${APP_NAME}.exe \
+		-d IconPath=assets/appicon.ico \
+		-d LicensePath=LICENSE \
+		-arch arm64 \
+		-o dist/${APP_NAME_LOWERCASE}-windows-$(TAG_NAME)-arm64.msi
 
 .PHONY: build_linux_binary
 build_linux_binary:
