@@ -7,7 +7,8 @@ BASEDIR=$(dirname "$(realpath "$0")")
 PREFIX=${PREFIX:-/usr/local}
 BIN_DIR="$PREFIX/bin"
 APP_DIR="$PREFIX/share/applications"
-ICON_DIR="$PREFIX/share/icons/hicolor/256x256/apps"
+ICON_BASE="$PREFIX/share/icons/hicolor"
+ICON_SIZES=(16 24 32 48 64 128 256 512)
 
 usage() {
     echo "Usage: $0 [--uninstall]"
@@ -77,10 +78,15 @@ validate_source_files() {
     local missing=0
     for f in \
         "$BASEDIR/$APP_NAME" \
-        "$BASEDIR/desktop-assets/$APP_NAME.desktop" \
-        "$BASEDIR/appicon.png"; do
+        "$BASEDIR/desktop-assets/$APP_NAME.desktop"; do
         if [ ! -f "$f" ]; then
             echo "Error: missing required file: $f" >&2
+            missing=1
+        fi
+    done
+    for size in "${ICON_SIZES[@]}"; do
+        if [ ! -f "$BASEDIR/linux-icons/$APP_NAME-${size}.png" ]; then
+            echo "Error: missing required file: $BASEDIR/linux-icons/$APP_NAME-${size}.png" >&2
             missing=1
         fi
     done
@@ -94,7 +100,7 @@ refresh_desktop_database() {
         update-desktop-database "$APP_DIR" 2>/dev/null || true
     fi
     if command -v gtk-update-icon-cache &>/dev/null; then
-        gtk-update-icon-cache -f -t "$PREFIX/share/icons/hicolor" 2>/dev/null || true
+        gtk-update-icon-cache -f -t "$ICON_BASE" 2>/dev/null || true
     fi
 }
 
@@ -104,7 +110,9 @@ do_uninstall() {
     echo "Uninstalling $APP_NAME from $PREFIX..."
     rm -fv "$BIN_DIR/$APP_NAME"
     rm -fv "$APP_DIR/$APP_NAME.desktop"
-    rm -fv "$ICON_DIR/$APP_NAME.png"
+    for size in "${ICON_SIZES[@]}"; do
+        rm -fv "$ICON_BASE/${size}x${size}/apps/$APP_NAME.png"
+    done
     refresh_desktop_database
     echo "Done."
     exit 0
@@ -125,9 +133,11 @@ do_install() {
     install -Dm644 "$BASEDIR/desktop-assets/$APP_NAME.desktop" "$APP_DIR/$APP_NAME.desktop"
     echo "  -> $APP_DIR/$APP_NAME.desktop"
 
-    # Icon
-    install -Dm644 "$BASEDIR/appicon.png" "$ICON_DIR/$APP_NAME.png"
-    echo "  -> $ICON_DIR/$APP_NAME.png"
+    # Icons (multiple sizes for crisp rendering at all DPIs)
+    for size in "${ICON_SIZES[@]}"; do
+        install -Dm644 "$BASEDIR/linux-icons/$APP_NAME-${size}.png" "$ICON_BASE/${size}x${size}/apps/$APP_NAME.png"
+        echo "  -> $ICON_BASE/${size}x${size}/apps/$APP_NAME.png"
+    done
 
     refresh_desktop_database
 
