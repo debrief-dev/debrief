@@ -54,16 +54,19 @@ jobs:
           sed -i "s/^Version=.*/Version=${VERSION:1}/" assets/desktop-assets/debrief.desktop
 
       - name: Build linux ${{ matrix.arch }} tarball
-        run: make build_linux LINUX_ARCH=${{ matrix.arch }}
+        run: make build_linux LINUX_ARCH=${{ matrix.arch }} TAG_NAME=${{ github.ref_name }}
 
       - name: Build deb package
-        run: make build_deb LINUX_ARCH=${{ matrix.arch }}
+        run: make build_deb LINUX_ARCH=${{ matrix.arch }} TAG_NAME=${{ github.ref_name }}
 
       - name: Build rpm package
-        run: make build_rpm LINUX_ARCH=${{ matrix.arch }}
+        run: make build_rpm LINUX_ARCH=${{ matrix.arch }} TAG_NAME=${{ github.ref_name }}
 
       - name: Build Arch Linux package
-        run: make build_archlinux LINUX_ARCH=${{ matrix.arch }}
+        run: make build_archlinux LINUX_ARCH=${{ matrix.arch }} TAG_NAME=${{ github.ref_name }}
+
+      - name: Clean up build artifacts
+        run: make clean_linux
 
       - name: Upload Release Assets
         run: |

@@ -27,27 +27,33 @@ jobs:
         run: dotnet tool install --global wix
 
       - name: Build windows
-        run: make build_windows
+        run: make build_windows TAG_NAME=${{ github.ref_name }}
 
       - name: Build MSI installers
-        run: make build_windows_msi
+        run: make build_windows_msi TAG_NAME=${{ github.ref_name }}
         env:
           TAG_NAME: ${{ github.ref_name }}
 
       - name: Rename EXE artifacts
         run: |
-          mv "dist/amd64/${APP_NAME}.exe" "dist/debrief-windows-${{ github.ref_name }}-amd64.exe"
-          mv "dist/arm64/${APP_NAME}.exe" "dist/debrief-windows-${{ github.ref_name }}-arm64.exe"
+          mv "dist/amd64/${APP_NAME}.exe" "dist/debrief-windows-portable-${{ github.ref_name }}-amd64.exe"
+          mv "dist/arm64/${APP_NAME}.exe" "dist/debrief-windows-portable-${{ github.ref_name }}-arm64.exe"
         shell: bash
         env:
           APP_NAME: Debrief
 
+      - name: Rename MSI artifacts
+        run: |
+          mv "dist/debrief-windows-${{ github.ref_name }}-amd64.msi" "dist/debrief-windows-installer-${{ github.ref_name }}-amd64.msi"
+          mv "dist/debrief-windows-${{ github.ref_name }}-arm64.msi" "dist/debrief-windows-installer-${{ github.ref_name }}-arm64.msi"
+        shell: bash
+
       - name: Upload Release Asset
         run: |
-          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-${{ github.ref_name }}-amd64.exe
-          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-${{ github.ref_name }}-arm64.exe
-          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-${{ github.ref_name }}-amd64.msi
-          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-${{ github.ref_name }}-arm64.msi
+          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-portable-${{ github.ref_name }}-amd64.exe
+          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-portable-${{ github.ref_name }}-arm64.exe
+          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-installer-${{ github.ref_name }}-amd64.msi
+          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-installer-${{ github.ref_name }}-arm64.msi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash

@@ -21,7 +21,7 @@ jobs:
         with:
           go-version: 1.25.0
 
-      - name: Install gogio tool
+      - name: Install deps
         run: make install_deps
 
       - name: Install create-dmg and librsvg tools
@@ -52,9 +52,9 @@ jobs:
 
       - name: Build and sign macOS app
         run: |
-          make build_macos_signed
-          make notarize_macos
-          make build_macos_dmg
+          make build_macos_signed TAG_NAME=${{ github.ref_name }}
+          make notarize_macos TAG_NAME=${{ github.ref_name }}
+          make build_macos_dmg TAG_NAME=${{ github.ref_name }}
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IDENTITY: ${{ secrets.IDENTITY }}
@@ -63,8 +63,8 @@ jobs:
 
       - name: Upload Release Asset
         run: |
-          gh release upload ${{github.event.release.tag_name}} ./dist/debrief-macos-${{ github.ref_name }}-amd64.dmg
-          gh release upload ${{github.event.release.tag_name}} ./dist/debrief-macos-${{ github.ref_name }}-arm64.dmg
+          gh release upload ${{ github.event.release.tag_name }} ./dist/debrief-macos-${{ github.ref_name }}-amd64.dmg
+          gh release upload ${{ github.event.release.tag_name }} ./dist/debrief-macos-${{ github.ref_name }}-arm64.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash

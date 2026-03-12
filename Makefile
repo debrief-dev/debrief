@@ -1,4 +1,4 @@
-TAG_NAME?=$(shell git describe --tags --dirty --abbrev=0 2>/dev/null || echo $(shell git rev-parse --short HEAD)-dirty)
+TAG_NAME?=$(shell git describe --tags --abbrev=0 2>/dev/null || echo $(shell git rev-parse --short HEAD))
 # MSI requires strictly numeric X.Y.Z version (no "v" prefix, no suffixes like "-dirty" or "-rc1")
 MSI_VERSION=$(shell echo $(TAG_NAME) | sed 's/^v//' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
 APP_NAME="Debrief"
@@ -180,28 +180,28 @@ build_linux_binary:
 build_linux: build_linux_binary
 	@echo "Packaging Linux $(LINUX_ARCH) tarball..."
 	cp ./assets/install_linux.sh ./dist/linux
-	cp ./assets/appicon.png ./dist/linux
+	cp -r ./assets/linux-icons ./dist/linux
 	cp ./LICENSE ./dist/linux
 	cp -r ./assets/desktop-assets ./dist/linux
-	tar -cJf ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).tar.xz --directory=./dist/linux ${APP_NAME_LOWERCASE} desktop-assets install_linux.sh appicon.png ./LICENSE
-	rm -rf ./dist/linux
+	tar -cJf ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).tar.xz --directory=./dist/linux ${APP_NAME_LOWERCASE} desktop-assets install_linux.sh linux-icons ./LICENSE
 
 .PHONY: build_deb
 build_deb: build_linux_binary
 	@echo "Building deb $(LINUX_ARCH) package..."
 	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --packager deb --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).deb
-	rm -rf ./dist/linux
 
 .PHONY: build_rpm
 build_rpm: build_linux_binary
 	@echo "Building rpm $(LINUX_ARCH) package..."
 	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --packager rpm --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).rpm
-	rm -rf ./dist/linux
 
 .PHONY: build_archlinux
 build_archlinux: build_linux_binary
 	@echo "Building Arch Linux $(LINUX_ARCH) package..."
 	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --packager archlinux --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).pkg.tar.zst
+
+.PHONY: clean_linux
+clean_linux:
 	rm -rf ./dist/linux
 
 .PHONY: run
