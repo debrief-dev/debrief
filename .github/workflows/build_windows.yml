@@ -10,6 +10,10 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    environment: Sign Executables
+    # Default shell is PowerShell. Make targets still work because make
+    # invokes recipe lines through its own shell (sh/bash from MSYS2),
+    # so Unix commands (rm, cp, etc.) in the Makefile execute correctly.
 
     steps:
       - name: Checkout repo
@@ -26,34 +30,75 @@ jobs:
       - name: Install WiX Toolset
         run: dotnet tool install --global wix
 
+      - name: Add signtool to PATH
+        run: |
+          $sdkDir = "C:\Program Files (x86)\Windows Kits\10\bin"
+          $signtoolDir = Get-ChildItem -Path $sdkDir -Filter "signtool.exe" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.DirectoryName -match 'x64' } |
+            Sort-Object DirectoryName -Descending |
+            Select-Object -First 1 -ExpandProperty DirectoryName
+          if (-not $signtoolDir) {
+            Write-Host "ERROR: signtool.exe not found"
+            exit 1
+          }
+          Write-Host "Found signtool at: $signtoolDir"
+          "$signtoolDir" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding UTF8
+
+      - name: Setup SimplySign code signing
+        env:
+          CERTUM_OTP_URI: ${{ secrets.CERTUM_OTP_URI }}
+          CERTUM_USERNAME: ${{ secrets.CERTUM_USERNAME }}
+        run: |
+          powershell -ExecutionPolicy Bypass -File ".\.github\scripts\install-simplysign.ps1"
+          powershell -ExecutionPolicy Bypass -File ".\.github\scripts\configure-simplysign.ps1"
+          powershell -ExecutionPolicy Bypass -File ".\.github\scripts\connect-simplysign.ps1"
+
       - name: Build windows
         run: make build_windows TAG_NAME=${{ github.ref_name }}
+
+      - name: Sign Windows executables
+        env:
+          CERTUM_CERTIFICATE_SHA1: ${{ secrets.CERTUM_CERTIFICATE_SHA1 }}
+          CERTUM_TIMESTAMP_SERVER: ${{ vars.CERTUM_TIMESTAMP_SERVER }}
+        run: |
+          signtool sign /sha1 $env:CERTUM_CERTIFICATE_SHA1 /tr $env:CERTUM_TIMESTAMP_SERVER /td sha256 /fd sha256 "dist\amd64\Debrief.exe"
+          signtool sign /sha1 $env:CERTUM_CERTIFICATE_SHA1 /tr $env:CERTUM_TIMESTAMP_SERVER /td sha256 /fd sha256 "dist\arm64\Debrief.exe"
 
       - name: Build MSI installers
         run: make build_windows_msi TAG_NAME=${{ github.ref_name }}
         env:
           TAG_NAME: ${{ github.ref_name }}
 
+      - name: Sign Windows MSI installers
+        env:
+          CERTUM_CERTIFICATE_SHA1: ${{ secrets.CERTUM_CERTIFICATE_SHA1 }}
+          CERTUM_TIMESTAMP_SERVER: ${{ vars.CERTUM_TIMESTAMP_SERVER }}
+        run: |
+          signtool sign /sha1 $env:CERTUM_CERTIFICATE_SHA1 /tr $env:CERTUM_TIMESTAMP_SERVER /td sha256 /fd sha256 "dist\debrief-windows-${{ github.ref_name }}-amd64.msi"
+          signtool sign /sha1 $env:CERTUM_CERTIFICATE_SHA1 /tr $env:CERTUM_TIMESTAMP_SERVER /td sha256 /fd sha256 "dist\debrief-windows-${{ github.ref_name }}-arm64.msi"
+
+      - name: Verify signatures
+        run: |
+          signtool verify /pa "dist\amd64\Debrief.exe"
+          signtool verify /pa "dist\arm64\Debrief.exe"
+          signtool verify /pa "dist\debrief-windows-${{ github.ref_name }}-amd64.msi"
+          signtool verify /pa "dist\debrief-windows-${{ github.ref_name }}-arm64.msi"
+
       - name: Rename EXE artifacts
         run: |
-          mv "dist/amd64/${APP_NAME}.exe" "dist/debrief-windows-portable-${{ github.ref_name }}-amd64.exe"
-          mv "dist/arm64/${APP_NAME}.exe" "dist/debrief-windows-portable-${{ github.ref_name }}-arm64.exe"
-        shell: bash
-        env:
-          APP_NAME: Debrief
+          Move-Item "dist\amd64\Debrief.exe" "dist\debrief-windows-portable-${{ github.ref_name }}-amd64.exe"
+          Move-Item "dist\arm64\Debrief.exe" "dist\debrief-windows-portable-${{ github.ref_name }}-arm64.exe"
 
       - name: Rename MSI artifacts
         run: |
-          mv "dist/debrief-windows-${{ github.ref_name }}-amd64.msi" "dist/debrief-windows-installer-${{ github.ref_name }}-amd64.msi"
-          mv "dist/debrief-windows-${{ github.ref_name }}-arm64.msi" "dist/debrief-windows-installer-${{ github.ref_name }}-arm64.msi"
-        shell: bash
+          Move-Item "dist\debrief-windows-${{ github.ref_name }}-amd64.msi" "dist\debrief-windows-installer-${{ github.ref_name }}-amd64.msi"
+          Move-Item "dist\debrief-windows-${{ github.ref_name }}-arm64.msi" "dist\debrief-windows-installer-${{ github.ref_name }}-arm64.msi"
 
       - name: Upload Release Asset
         run: |
-          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-portable-${{ github.ref_name }}-amd64.exe
-          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-portable-${{ github.ref_name }}-arm64.exe
-          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-installer-${{ github.ref_name }}-amd64.msi
-          gh release upload ${{ github.event.release.tag_name }} dist/debrief-windows-installer-${{ github.ref_name }}-arm64.msi
+          gh release upload ${{ github.event.release.tag_name }} "dist\debrief-windows-portable-${{ github.ref_name }}-amd64.exe"
+          gh release upload ${{ github.event.release.tag_name }} "dist\debrief-windows-portable-${{ github.ref_name }}-arm64.exe"
+          gh release upload ${{ github.event.release.tag_name }} "dist\debrief-windows-installer-${{ github.ref_name }}-amd64.msi"
+          gh release upload ${{ github.event.release.tag_name }} "dist\debrief-windows-installer-${{ github.ref_name }}-arm64.msi"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
