@@ -35,7 +35,7 @@ func Enable() error {
 	content := "[Desktop Entry]\n" +
 		"Type=Application\n" +
 		"Name=Debrief\n" +
-		"Exec=" + exePath + "\n" +
+		"Exec=\"" + exePath + "\"\n" +
 		"X-GNOME-Autostart-enabled=true\n" +
 		"StartupNotify=false\n" +
 		"Terminal=false\n"

@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -29,6 +30,8 @@ func ExpandPath(path string) string {
 			if path[1] == '/' || path[1] == '\\' {
 				return filepath.Join(home, path[2:])
 			}
+		} else {
+			log.Printf("Warning: failed to expand ~ in path %q: %v", path, err)
 		}
 	}
 

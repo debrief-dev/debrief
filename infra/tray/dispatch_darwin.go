@@ -21,7 +21,12 @@ static void dispatchTrayStart(void) {
 */
 import "C"
 
-var startFunc func()
+import "sync"
+
+var (
+	startFunc     func()
+	startFuncOnce sync.Once
+)
 
 //export goTrayStartCallback
 func goTrayStartCallback() {
@@ -34,6 +39,8 @@ func goTrayStartCallback() {
 // thread via dispatch_async(dispatch_get_main_queue(), ...).
 // This is required because NSStatusItem/NSMenu must be created on the main thread.
 func dispatchStartOnMainThread(f func()) {
-	startFunc = f
-	C.dispatchTrayStart()
+	startFuncOnce.Do(func() {
+		startFunc = f
+		C.dispatchTrayStart()
+	})
 }

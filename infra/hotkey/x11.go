@@ -58,7 +58,9 @@ func (b *nativeBackend) Register() error {
 
 func (b *nativeBackend) Unregister() error {
 	b.once.Do(func() {
-		close(b.done)
+		if b.done != nil {
+			close(b.done)
+		}
 	})
 
 	if err := b.hk.Unregister(); err != nil {
