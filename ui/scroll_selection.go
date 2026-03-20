@@ -172,17 +172,24 @@ func syncCommandToTreeSelection(app *appstate.State) {
 
 // findCommandMatch searches for a command that matches the given node path
 // Returns the index of the best match, or -1 if not found
-// matchType: "exact" for exact/prefix matching, "fuzzy" for contains matching
+// matchType: matchExact for exact/prefix matching, matchFuzzy for contains matching
 //
 // NOTE: Linear scan is acceptable for current data sizes
-func findCommandMatch(searchList []*model.CommandEntry, nodePath, matchType string) int {
+type matchType int
+
+const (
+	matchExact matchType = iota
+	matchFuzzy
+)
+
+func findCommandMatch(searchList []*model.CommandEntry, nodePath string, mt matchType) int {
 	foundIndex := -1
 	bestMatchLen := 0
 
 	for i, cmd := range searchList {
 		var matched bool
 
-		if matchType == "fuzzy" {
+		if mt == matchFuzzy {
 			// Fuzzy match: command contains node path
 			matched = strings.Contains(cmd.Command, nodePath)
 			if matched {
@@ -260,7 +267,7 @@ func syncTreeToCommandSelection(app *appstate.State) {
 	searchList := app.Commands.DisplayCommands
 
 	// Find the best matching command (prefer exact match or longest prefix)
-	foundIndex := findCommandMatch(searchList, nodePath, "exact")
+	foundIndex := findCommandMatch(searchList, nodePath, matchExact)
 
 	app.StoreMu.RUnlock()
 
@@ -280,7 +287,7 @@ func syncTreeToCommandSelection(app *appstate.State) {
 
 	app.StoreMu.RLock()
 
-	fuzzyFoundIndex := findCommandMatch(app.Commands.DisplayCommands, nodePath, "fuzzy")
+	fuzzyFoundIndex := findCommandMatch(app.Commands.DisplayCommands, nodePath, matchFuzzy)
 
 	app.StoreMu.RUnlock()
 
