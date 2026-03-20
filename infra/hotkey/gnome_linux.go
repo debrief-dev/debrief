@@ -86,6 +86,7 @@ func (g *gnomeBackend) Register() error {
 
 	// closeOnError releases D-Bus resources if registration fails partway.
 	cleanup := true
+
 	defer func() {
 		if cleanup {
 			if closeErr := conn.Close(); closeErr != nil {
