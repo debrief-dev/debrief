@@ -215,6 +215,10 @@ func (c *Controller) MarkClosed() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.closed {
+		return // Already marked (e.g. Wayland hideWindow)
+	}
+
 	c.closed = true
 	c.visible = false
 

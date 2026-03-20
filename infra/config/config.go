@@ -52,9 +52,19 @@ func LoadConfig(path string) (*Config, error) {
 		return DefaultConfig(), nil
 	}
 
+	cfg.clamp()
+
 	log.Printf("Loaded config from %s", path)
 
 	return &cfg, nil
+}
+
+// clamp ensures all fields are within valid ranges.
+func (c *Config) clamp() {
+	if c.HotkeyPreset < 0 || c.HotkeyPreset > MaxHotkeyPreset {
+		log.Printf("Config: HotkeyPreset %d out of range [0, %d], resetting to 0", c.HotkeyPreset, MaxHotkeyPreset)
+		c.HotkeyPreset = 0
+	}
 }
 
 // SaveConfig writes configuration to disk, creating the directory if needed.

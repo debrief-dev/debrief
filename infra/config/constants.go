@@ -24,6 +24,10 @@ const ConfigFileName = "config.json"
 // LogFileName is the name of the application log file.
 const LogFileName = "debrief.log"
 
+// MaxHotkeyPreset is the maximum valid hotkey preset index.
+// Must match hotkey.PresetCount - 1.
+const MaxHotkeyPreset = 2
+
 // PollingInterval is the fallback interval for polling history file changes
 // when filesystem notifications (fsnotify) are unavailable.
 const PollingInterval = 5 * time.Second

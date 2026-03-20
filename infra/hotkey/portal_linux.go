@@ -34,6 +34,7 @@ type portalBackend struct {
 	sessionPath      dbus.ObjectPath
 	preferredTrigger string
 	keyChan          chan struct{}
+	done             chan struct{}
 	mu               sync.Mutex
 	closed           bool
 }
@@ -81,6 +82,7 @@ func newPortalBackend(modStrs []string, keyStr string) (*portalBackend, error) {
 		conn:             conn,
 		preferredTrigger: buildTriggerString(modStrs, keyStr),
 		keyChan:          make(chan struct{}, 1),
+		done:             make(chan struct{}),
 	}, nil
 }
 
@@ -169,6 +171,7 @@ func (p *portalBackend) Register() error {
 	call = obj.Call(portalShortcutIf+".BindShortcuts", 0,
 		p.sessionPath, shortcuts, "", bindOpts)
 	if call.Err != nil {
+		p.closeSession()
 		return fmt.Errorf("BindShortcuts call failed: %w", call.Err)
 	}
 
@@ -178,10 +181,12 @@ func (p *portalBackend) Register() error {
 
 	responseCode, _, err = waitResponse(sigChan, expectedBindPath)
 	if err != nil {
+		p.closeSession()
 		return fmt.Errorf("BindShortcuts response failed: %w", err)
 	}
 
 	if responseCode != 0 {
+		p.closeSession()
 		return fmt.Errorf("BindShortcuts denied (response code: %d)", responseCode)
 	}
 
@@ -218,29 +223,56 @@ func (p *portalBackend) listenActivated() {
 
 	log.Println("Hotkey portal: Listening for Activated signals")
 
-	for sig := range sigChan {
-		if sig.Name != portalShortcutIf+".Activated" {
-			continue
-		}
-
-		// Activated signal body: (session_handle, shortcut_id, timestamp, options)
-		if len(sig.Body) < minResponseBodyLen {
-			continue
-		}
-
-		id, ok := sig.Body[1].(string)
-		if !ok || id != shortcutID {
-			continue
-		}
-
-		log.Println("Hotkey portal: Shortcut activated")
-
+	for {
 		select {
-		case p.keyChan <- struct{}{}:
-		default:
-			// Channel full, skip duplicate
+		case <-p.done:
+			log.Println("Hotkey portal: Listener stopped")
+			return
+		case sig, ok := <-sigChan:
+			if !ok {
+				log.Println("Hotkey portal: Signal channel closed")
+				return
+			}
+
+			if sig.Name != portalShortcutIf+".Activated" {
+				continue
+			}
+
+			// Activated signal body: (session_handle, shortcut_id, timestamp, options)
+			if len(sig.Body) < minResponseBodyLen {
+				continue
+			}
+
+			id, ok := sig.Body[1].(string)
+			if !ok || id != shortcutID {
+				continue
+			}
+
+			log.Println("Hotkey portal: Shortcut activated")
+
+			select {
+			case p.keyChan <- struct{}{}:
+			default:
+				// Channel full, skip duplicate
+			}
 		}
 	}
+}
+
+// closeSession closes the portal session via D-Bus.
+// Safe to call even if no session was created.
+func (p *portalBackend) closeSession() {
+	if p.sessionPath == "" {
+		return
+	}
+
+	sessionObj := p.conn.Object(portalDest, p.sessionPath)
+
+	if err := sessionObj.Call(portalSessionIf+".Close", 0).Err; err != nil {
+		log.Printf("Hotkey portal: warning: failed to close session: %v", err)
+	}
+
+	p.sessionPath = ""
 }
 
 // Unregister closes the portal session and D-Bus connection.
@@ -253,15 +285,9 @@ func (p *portalBackend) Unregister() error {
 	}
 
 	p.closed = true
+	close(p.done)
 
-	// Close the portal session
-	if p.sessionPath != "" {
-		sessionObj := p.conn.Object(portalDest, p.sessionPath)
-
-		if err := sessionObj.Call(portalSessionIf+".Close", 0).Err; err != nil {
-			log.Printf("Hotkey portal: warning: failed to close session: %v", err)
-		}
-	}
+	p.closeSession()
 
 	if err := p.conn.Close(); err != nil {
 		return fmt.Errorf("failed to close D-Bus connection: %w", err)
