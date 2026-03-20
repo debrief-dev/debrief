@@ -84,28 +84,20 @@ func handleSearchInput(app *appstate.State) {
 	// Only clear selections if the search query actually changed
 	// This prevents clearing NeedScrollToSel during tab switches when text hasn't changed
 	if queryChanged {
-		// Save current selections before clearing them (only if we have a selection)
-		if app.Commands.SelectedIndex >= 0 {
-			app.StoreMu.RLock()
+		// Save current selections before clearing them (single lock for consistent snapshot)
+		app.StoreMu.RLock()
 
-			if app.Commands.SelectedIndex < len(app.Commands.DisplayCommands) {
-				app.Commands.LastSelectedIndex = app.Commands.SelectedIndex
-				app.Commands.LastSelectedCmd = app.Commands.DisplayCommands[app.Commands.SelectedIndex].Command
-			}
-
-			app.StoreMu.RUnlock()
+		if app.Commands.SelectedIndex >= 0 && app.Commands.SelectedIndex < len(app.Commands.DisplayCommands) {
+			app.Commands.LastSelectedIndex = app.Commands.SelectedIndex
+			app.Commands.LastSelectedCmd = app.Commands.DisplayCommands[app.Commands.SelectedIndex].Command
 		}
 
-		if app.Tree.SelectedNode >= 0 {
-			app.StoreMu.RLock()
-
-			if app.Tree.SelectedNode < len(app.Tree.Nodes) {
-				app.Tree.LastSelectedNode = app.Tree.SelectedNode
-				app.Tree.LastSelectedPath = app.Tree.Nodes[app.Tree.SelectedNode].Path
-			}
-
-			app.StoreMu.RUnlock()
+		if app.Tree.SelectedNode >= 0 && app.Tree.SelectedNode < len(app.Tree.Nodes) {
+			app.Tree.LastSelectedNode = app.Tree.SelectedNode
+			app.Tree.LastSelectedPath = app.Tree.Nodes[app.Tree.SelectedNode].Path
 		}
+
+		app.StoreMu.RUnlock()
 
 		// Reset selection when user types (return to search mode)
 		app.Commands.SelectedIndex = -1 // UI-only state

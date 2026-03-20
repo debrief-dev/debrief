@@ -357,7 +357,7 @@ func findNextWordBoundary(runes []rune, pos int) int {
 // total is the number of items. pageSize is items to jump.
 // up=true moves toward 0; up=false moves toward total-1.
 // Returns current unchanged when total == 0.
-func pageJump(current, total, pageSize int, up bool) int { //nolint:unparam
+func pageJump(current, total, pageSize int, up bool) int {
 	if total == 0 {
 		return current
 	}

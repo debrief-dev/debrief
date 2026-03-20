@@ -415,7 +415,7 @@ func handleTreeNodePointerEvents(gtx C, app *appstate.State, node *model.TreeDis
 				if app.Tree.SuppressHover {
 					app.Tree.SuppressHover = false
 					needsInvalidate = true
-				} else {
+				} else if app.Tree.HoveredNode != index {
 					app.Tree.HoveredNode = index
 					needsInvalidate = true
 				}

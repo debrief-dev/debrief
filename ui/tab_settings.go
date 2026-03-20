@@ -199,7 +199,7 @@ func renderHotkeyMessages(gtx C, app *appstate.State, theme *material.Theme) D {
 		})
 	}
 
-	if app.Hotkeys.Success {
+	if app.Hotkeys.Success && app.Hotkeys.SelectedPresetID >= 0 && app.Hotkeys.SelectedPresetID < len(app.Hotkeys.Presets) {
 		return layout.Inset{Bottom: SpacingMedium}.Layout(gtx, func(gtx C) D {
 			selectedPreset := app.Hotkeys.Presets[app.Hotkeys.SelectedPresetID]
 			message := HotKeyCardSuccess + selectedPreset.DisplayName
@@ -227,6 +227,13 @@ func saveHotkeyPreset(app *appstate.State) {
 // ProcessHotkeyUpdate performs the actual hotkey registration and config save.
 // Must be called after ev.Frame to avoid a dispatch_sync deadlock on macOS.
 func ProcessHotkeyUpdate(app *appstate.State) {
+	if app.Hotkeys.SelectedPresetID < 0 || app.Hotkeys.SelectedPresetID >= len(app.Hotkeys.Presets) {
+		app.Hotkeys.Error = "Invalid preset selection"
+		app.Window.Invalidate()
+
+		return
+	}
+
 	preset := app.Hotkeys.Presets[app.Hotkeys.SelectedPresetID]
 
 	mods, key, err := hotkey.ConvertStrings(preset.Modifiers, preset.Key)
