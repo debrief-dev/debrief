@@ -97,7 +97,7 @@ func main() {
 	// Quit signal - only true when explicitly quitting from tray
 	shouldQuit := make(chan bool, 1)
 
-	configPath, cfg, err := loadConfig()
+	configPath, cfg, configExisted, err := loadConfig()
 	if err != nil {
 		log.Printf("Config: %v, using defaults", err)
 	}
@@ -153,7 +153,10 @@ func main() {
 	go registerHotkey(firstWindowReady, hotkeyManager, hotkeyMods, hotkeyKey)
 
 	var (
-		startHidden   bool
+		// Start hidden when a config file already exists (not the first launch).
+		// On first-ever launch the window is shown so the user sees the app.
+		// On subsequent launches (including autostart) the app starts in the tray.
+		startHidden   = configExisted
 		startHiddenMu sync.Mutex
 	)
 
@@ -910,16 +913,18 @@ func syncAutoStartState(cfg *config.Config) bool {
 
 // loadConfig resolves the config path and loads the configuration.
 // On any error it returns defaults and the path for future saves.
-func loadConfig() (string, *config.Config, error) {
+// The boolean return value is true when an existing config file was found
+// (i.e. this is not the very first launch).
+func loadConfig() (string, *config.Config, bool, error) {
 	path, err := config.ConfigPath()
 	if err != nil {
-		return "", config.DefaultConfig(), fmt.Errorf("resolving config path: %w", err)
+		return "", config.DefaultConfig(), false, fmt.Errorf("resolving config path: %w", err)
 	}
 
-	cfg, err := config.LoadConfig(path)
+	cfg, existed, err := config.LoadConfig(path)
 	if err != nil {
-		return path, config.DefaultConfig(), fmt.Errorf("loading config: %w", err)
+		return path, config.DefaultConfig(), false, fmt.Errorf("loading config: %w", err)
 	}
 
-	return path, cfg, nil
+	return path, cfg, existed, nil
 }

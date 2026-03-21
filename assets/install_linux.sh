@@ -7,6 +7,7 @@ BASEDIR=$(dirname "$(realpath "$0")")
 PREFIX=${PREFIX:-/usr/local}
 BIN_DIR="$PREFIX/bin"
 APP_DIR="$PREFIX/share/applications"
+AUTOSTART_DIR="/etc/xdg/autostart"
 ICON_BASE="$PREFIX/share/icons/hicolor"
 ICON_SIZES=(16 24 32 48 64 128 256 512)
 
@@ -110,6 +111,7 @@ do_uninstall() {
     echo "Uninstalling $APP_NAME from $PREFIX..."
     rm -fv "$BIN_DIR/$APP_NAME"
     rm -fv "$APP_DIR/$APP_NAME.desktop"
+    rm -fv "$AUTOSTART_DIR/$APP_NAME.desktop"
     for size in "${ICON_SIZES[@]}"; do
         rm -fv "$ICON_BASE/${size}x${size}/apps/$APP_NAME.png"
     done
@@ -138,6 +140,10 @@ do_install() {
         install -Dm644 "$BASEDIR/linux-icons/$APP_NAME-${size}.png" "$ICON_BASE/${size}x${size}/apps/$APP_NAME.png"
         echo "  -> $ICON_BASE/${size}x${size}/apps/$APP_NAME.png"
     done
+
+    # XDG autostart entry (system-wide, so app starts on login for all users)
+    install -Dm644 "$BASEDIR/desktop-assets/$APP_NAME-autostart.desktop" "$AUTOSTART_DIR/$APP_NAME.desktop"
+    echo "  -> $AUTOSTART_DIR/$APP_NAME.desktop"
 
     refresh_desktop_database
 

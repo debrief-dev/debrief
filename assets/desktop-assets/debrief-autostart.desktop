@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Debrief
+Exec=debrief
+Terminal=false
+X-GNOME-Autostart-enabled=true
+StartupNotify=false

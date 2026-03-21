@@ -85,3 +85,8 @@ contents:
     dst: /usr/share/icons/hicolor/512x512/apps/debrief.png
     file_info:
       mode: 0644
+
+  - src: ./assets/desktop-assets/debrief-autostart.desktop
+    dst: /etc/xdg/autostart/debrief.desktop
+    file_info:
+      mode: 0644
