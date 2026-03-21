@@ -252,14 +252,7 @@ func handleStatisticsScrolling(gtx C, app *appstate.State) {
 	}
 
 	// Initialize or resize height cache if needed
-	if len(app.Stats.ItemHeights) != totalItems {
-		if cap(app.Stats.ItemHeights) >= totalItems {
-			app.Stats.ItemHeights = app.Stats.ItemHeights[:totalItems]
-			clear(app.Stats.ItemHeights)
-		} else {
-			app.Stats.ItemHeights = make([]int, totalItems)
-		}
-	}
+	resizeHeightCache(&app.Stats.ItemHeights, totalItems)
 
 	// Sum cached heights of items before the selected one to compute the pixel offset.
 	offset := 0

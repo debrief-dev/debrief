@@ -345,7 +345,8 @@ func renderAutostartMessages(gtx C, app *appstate.State, theme *material.Theme) 
 }
 
 // ProcessAutostartUpdate performs the actual autostart toggle and config save.
-// Must be called after ev.Frame in a goroutine to avoid blocking the UI thread.
+// Runs as a goroutine after ev.Frame to avoid blocking the UI thread.
+// Sends result on app.AutoStartResultChan; the event loop applies it on the UI thread.
 func ProcessAutostartUpdate(app *appstate.State) {
 	newState := !app.AutoStartEnabled
 
@@ -357,27 +358,39 @@ func ProcessAutostartUpdate(app *appstate.State) {
 	}
 
 	if err != nil {
-		app.AutoStartError = fmt.Sprintf(AutoStartFailure, err)
 		log.Printf("Autostart toggle failed: %v", err)
 
-		app.AutoStartUpdating = false
-		app.Window.Invalidate()
+		app.AutoStartResultChan <- appstate.AutostartResult{
+			Error:      fmt.Sprintf(AutoStartFailure, err),
+			NewEnabled: app.AutoStartEnabled, // unchanged
+			AutoStart:  app.Config.AutoStart, // unchanged
+		}
+
+		app.MarkDirty()
 
 		return
 	}
 
-	app.AutoStartEnabled = newState
+	// Save config to disk (file I/O is fine from goroutine)
 	app.Config.AutoStart = newState
 
 	if err := app.Config.SaveConfig(app.ConfigPath); err != nil {
-		app.AutoStartError = fmt.Sprintf(AutoStartFailureCfg, err)
 		log.Printf("Config save failed after autostart toggle: %v", err)
+
+		app.AutoStartResultChan <- appstate.AutostartResult{
+			Error:      fmt.Sprintf(AutoStartFailureCfg, err),
+			NewEnabled: newState,
+			AutoStart:  newState,
+		}
 	} else {
-		app.AutoStartSuccess = true
+		app.AutoStartResultChan <- appstate.AutostartResult{
+			Success:    true,
+			NewEnabled: newState,
+			AutoStart:  newState,
+		}
 	}
 
-	app.AutoStartUpdating = false
-	app.Window.Invalidate()
+	app.MarkDirty()
 }
 
 // saveHotkeyPreset schedules a hotkey update for after frame submission.
@@ -392,43 +405,51 @@ func saveHotkeyPreset(app *appstate.State) {
 }
 
 // ProcessHotkeyUpdate performs the actual hotkey registration and config save.
-// Must be called after ev.Frame to avoid a dispatch_sync deadlock on macOS.
+// Runs as a goroutine after ev.Frame to avoid a dispatch_sync deadlock on macOS.
+// Sends result on app.Hotkeys.ResultChan; the event loop applies it on the UI thread.
 func ProcessHotkeyUpdate(app *appstate.State) {
-	if app.Hotkeys.SelectedPresetID < 0 || app.Hotkeys.SelectedPresetID >= len(app.Hotkeys.Presets) {
-		app.Hotkeys.Error = "Invalid preset selection"
-		app.Window.Invalidate()
+	presetID := app.Hotkeys.SelectedPresetID
+
+	if presetID < 0 || presetID >= len(app.Hotkeys.Presets) {
+		app.Hotkeys.ResultChan <- appstate.HotkeyResult{Error: "Invalid preset selection"}
+
+		app.MarkDirty()
 
 		return
 	}
 
-	preset := app.Hotkeys.Presets[app.Hotkeys.SelectedPresetID]
+	preset := app.Hotkeys.Presets[presetID]
 
 	mods, key, err := hotkey.ConvertStrings(preset.Modifiers, preset.Key)
 	if err != nil {
-		app.Hotkeys.Error = err.Error()
-		app.Window.Invalidate()
+		app.Hotkeys.ResultChan <- appstate.HotkeyResult{Error: err.Error()}
+
+		app.MarkDirty()
 
 		return
 	}
 
 	if err := app.Hotkeys.Manager.UpdateHotkey(mods, key, preset.Modifiers, preset.Key); err != nil {
-		app.Hotkeys.Error = fmt.Sprintf(HotKeyCardFailure, err)
+		app.Hotkeys.ResultChan <- appstate.HotkeyResult{Error: fmt.Sprintf(HotKeyCardFailure, err)}
+
 		log.Printf("Hotkey registration failed: %v", err)
-		app.Window.Invalidate()
+		app.MarkDirty()
 
 		return
 	}
 
-	app.Config.HotkeyPreset = app.Hotkeys.SelectedPresetID
+	// Save config to disk (file I/O is fine from goroutine)
+	app.Config.HotkeyPreset = presetID
 
 	if err := app.Config.SaveConfig(app.ConfigPath); err != nil {
-		app.Hotkeys.Error = fmt.Sprintf(HotKeyCardFailureDueToCfg, err)
+		app.Hotkeys.ResultChan <- appstate.HotkeyResult{Error: fmt.Sprintf(HotKeyCardFailureDueToCfg, err)}
+
 		log.Printf("Config save failed: %v", err)
 	} else {
-		app.Hotkeys.Success = true
+		app.Hotkeys.ResultChan <- appstate.HotkeyResult{Success: true, PresetID: presetID}
 
 		log.Printf("Hotkey updated: %v + %v", mods, key)
 	}
 
-	app.Window.Invalidate()
+	app.MarkDirty()
 }

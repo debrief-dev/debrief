@@ -39,7 +39,7 @@ func renderCommandsTab(gtx C, app *appstate.State, theme *material.Theme) D {
 }
 
 // renderCommandItem renders a single command entry with source indicator
-func renderCommandItem(gtx C, app *appstate.State, theme *material.Theme, cmd *model.CommandEntry, index int, isSelected bool) D {
+func renderCommandItem(gtx C, app *appstate.State, theme *material.Theme, cmd *model.CommandEntry, index int, isSelected bool, metadataCache map[*model.CommandEntry]string) D {
 	// Outer spacing between rows
 	return layout.Inset{
 		Top:    unit.Dp(1),
@@ -82,11 +82,11 @@ func renderCommandItem(gtx C, app *appstate.State, theme *material.Theme, cmd *m
 				// Metadata (frequency and shell name)
 				layout.Rigid(func(gtx C) D {
 					// Check cache first for zero allocations
-					metadata, exists := app.Commands.MetadataCache[cmd]
+					metadata, exists := metadataCache[cmd]
 					if !exists {
-						// Build and cache on first render
+						// Build and cache on first render (UI-thread-only writes to snapshot)
 						metadata = tree.BuildCommandMetadata(cmd.Frequency, cmd.Shell.String())
-						app.Commands.MetadataCache[cmd] = metadata
+						metadataCache[cmd] = metadata
 					}
 
 					label := material.Caption(theme, metadata)
@@ -140,6 +140,8 @@ func renderCommandList(gtx C, app *appstate.State, theme *material.Theme) D {
 	app.StoreMu.RLock()
 	commands := app.Commands.DisplayCommands
 	loadError := app.LoadError
+	metadataCache := app.Commands.MetadataCache
+	currentQuery := app.CurrentQuery
 	app.StoreMu.RUnlock()
 
 	// Initialize or resize height cache if needed
@@ -212,8 +214,8 @@ func renderCommandList(gtx C, app *appstate.State, theme *material.Theme) D {
 	// Handle empty state
 	if len(commands) == 0 {
 		message := "No commands found"
-		if app.CurrentQuery != "" {
-			message = fmt.Sprintf("No matches for '%s'", app.CurrentQuery)
+		if currentQuery != "" {
+			message = fmt.Sprintf("No matches for '%s'", currentQuery)
 		}
 
 		return layout.Center.Layout(gtx, func(gtx C) D {
@@ -247,16 +249,12 @@ func renderCommandList(gtx C, app *appstate.State, theme *material.Theme) D {
 						app.Window.Invalidate()
 					}
 				case pointer.Press:
-					app.StoreMu.RLock()
-
 					var cmdToCopy string
-					if index >= 0 && index < len(app.Commands.DisplayCommands) {
-						cmdToCopy = app.Commands.DisplayCommands[index].Command
-					} else if len(app.Commands.DisplayCommands) == 1 {
-						cmdToCopy = app.Commands.DisplayCommands[0].Command
+					if index >= 0 && index < len(commands) {
+						cmdToCopy = commands[index].Command
+					} else if len(commands) == 1 {
+						cmdToCopy = commands[0].Command
 					}
-
-					app.StoreMu.RUnlock()
 
 					if cmdToCopy != "" {
 						copyTextAndMinimize(gtx, app, cmdToCopy)
@@ -267,7 +265,7 @@ func renderCommandList(gtx C, app *appstate.State, theme *material.Theme) D {
 
 		isSelected := app.Commands.SelectedIndex == index
 
-		dims := renderCommandItem(gtx, app, theme, cmd, index, isSelected)
+		dims := renderCommandItem(gtx, app, theme, cmd, index, isSelected, metadataCache)
 
 		// Cache the rendered height for smart scrolling
 		if index < len(app.Commands.ItemHeights) {

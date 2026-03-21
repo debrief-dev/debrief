@@ -484,20 +484,18 @@ func handleTreeNodeClick(gtx C, app *appstate.State, node *model.TreeDisplayNode
 // navigateTreeWithSearch performs tree navigation using a custom search function
 // searchFn takes (nodes, selectedIndex) and returns search result
 func navigateTreeWithSearch(app *appstate.State, searchFn func(nodes []*model.TreeDisplayNode, selectedIndex int) treeNavigationResult) {
-	// Snapshot with generation counter
+	// Snapshot with generation counter (copy-on-write: nodes slice is immutable after snapshot)
 	app.StoreMu.RLock()
 	selectedTreeNode := app.Tree.SelectedNode
 	nodes := app.Tree.Nodes
 	generation := app.Tree.NodesGeneration
+	app.StoreMu.RUnlock()
 
 	if selectedTreeNode < 0 || selectedTreeNode >= len(nodes) {
-		app.StoreMu.RUnlock()
 		return
 	}
 
 	result := searchFn(nodes, selectedTreeNode)
-
-	app.StoreMu.RUnlock()
 
 	if result.foundIndex >= 0 {
 		app.StoreMu.Lock()

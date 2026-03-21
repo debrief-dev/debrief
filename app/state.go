@@ -120,6 +120,21 @@ type TabState struct {
 	SettingsTab   widget.Clickable
 }
 
+// HotkeyResult is sent by the ProcessHotkeyUpdate goroutine back to the UI thread.
+type HotkeyResult struct {
+	Error    string // Empty on success
+	Success  bool
+	PresetID int // Config.HotkeyPreset value to apply
+}
+
+// AutostartResult is sent by the ProcessAutostartUpdate goroutine back to the UI thread.
+type AutostartResult struct {
+	Error      string // Empty on success
+	Success    bool
+	NewEnabled bool // New autostart enabled state
+	AutoStart  bool // Config.AutoStart value to apply
+}
+
 // HotkeyState holds hotkey configuration state (UI-THREAD-ONLY).
 type HotkeyState struct {
 	// NeedsUpdate is set during frame processing and consumed after ev.Frame.
@@ -133,6 +148,7 @@ type HotkeyState struct {
 	Presets          []hotkey.Preset    // Preset definitions
 	SelectedPresetID int                // Currently selected preset (0, 1, or 2)
 	PresetClickables []widget.Clickable // Clickables for preset buttons
+	ResultChan       chan HotkeyResult  // Buffered(1): goroutine sends result, UI thread drains
 }
 
 type State struct {
@@ -181,12 +197,13 @@ type State struct {
 
 	// Settings view state (UI-THREAD-ONLY)
 	SettingsList         widget.List
-	AutoStartEnabled     bool             // Whether autostart is currently on
-	AutoStartClick       widget.Clickable // Toggle button
-	AutoStartError       string           // Error message after toggle attempt
-	AutoStartSuccess     bool             // Show success message after toggle
-	AutoStartNeedsUpdate bool             // Deferred toggle flag (like Hotkeys.NeedsUpdate)
-	AutoStartUpdating    bool             // Guard: set on UI thread before goroutine launch, cleared by goroutine before Invalidate
+	AutoStartEnabled     bool                 // Whether autostart is currently on
+	AutoStartClick       widget.Clickable     // Toggle button
+	AutoStartError       string               // Error message after toggle attempt
+	AutoStartSuccess     bool                 // Show success message after toggle
+	AutoStartNeedsUpdate bool                 // Deferred toggle flag (like Hotkeys.NeedsUpdate)
+	AutoStartUpdating    bool                 // Guard: set on UI thread before goroutine launch, cleared on result drain
+	AutoStartResultChan  chan AutostartResult // Buffered(1): goroutine sends result, UI thread drains
 
 	// Background-to-UI invalidation flag.
 	// Background goroutines set this (via MarkDirty) alongside Window.Invalidate().
