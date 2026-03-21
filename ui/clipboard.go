@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"gioui.org/io/clipboard"
+
 	appstate "github.com/debrief-dev/debrief/app"
 )
 

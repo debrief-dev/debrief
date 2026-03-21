@@ -14,9 +14,10 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"golang.org/x/exp/shiny/materialdesign/icons"
+
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/data/model"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
 // treeRestoreContextRows is the number of rows shown above a restored

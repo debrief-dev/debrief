@@ -7,6 +7,7 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/widget"
+
 	"github.com/debrief-dev/debrief/data/cmdstore"
 	"github.com/debrief-dev/debrief/data/model"
 	"github.com/debrief-dev/debrief/data/shell"

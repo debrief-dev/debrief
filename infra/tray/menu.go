@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"fyne.io/systray"
+
 	"github.com/debrief-dev/debrief/infra/platform"
 	"github.com/debrief-dev/debrief/ui"
 )

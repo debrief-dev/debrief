@@ -9,6 +9,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/data/model"
 )

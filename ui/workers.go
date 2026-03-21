@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
+
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/data/cmdstore"
 	"github.com/debrief-dev/debrief/data/model"
 	"github.com/debrief-dev/debrief/data/tree"
 	"github.com/debrief-dev/debrief/infra/config"
-	"github.com/fsnotify/fsnotify"
 )
 
 // parserDebounceDelay is the debounce delay for file change events in the background parser
