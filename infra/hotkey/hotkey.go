@@ -166,14 +166,23 @@ func (m *Manager) UpdateHotkey(mods []hk.Modifier, key hk.Key, modStrs []string,
 		m.registered = false
 	}
 
-	m.b = newBackend(mods, key, modStrs, keyStr)
+	b := newBackend(mods, key, modStrs, keyStr)
 
 	log.Printf("Registering hotkey: %v + %s", modStrs, keyStr)
 
-	if err := m.b.Register(); err != nil {
+	if err := b.Register(); err != nil {
+		// Clean up any resources the backend acquired during construction
+		// (e.g., portal backend opens a D-Bus connection in newPortalBackend).
+		if unregErr := b.Unregister(); unregErr != nil {
+			log.Printf("Failed to clean up failed hotkey backend: %v", unregErr)
+		}
+
 		log.Printf("Failed to register hotkey: %v", err)
+
 		return fmt.Errorf("failed to register hotkey (%v + %s): %w", modStrs, keyStr, err)
 	}
+
+	m.b = b
 
 	m.registered = true
 	m.done = make(chan struct{})

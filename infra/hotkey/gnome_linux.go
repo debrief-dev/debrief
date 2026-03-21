@@ -84,6 +84,19 @@ func (g *gnomeBackend) Register() error {
 
 	g.conn = conn
 
+	// closeOnError releases D-Bus resources if registration fails partway.
+	cleanup := true
+
+	defer func() {
+		if cleanup {
+			if closeErr := conn.Close(); closeErr != nil {
+				log.Printf("Hotkey GNOME: error closing D-Bus connection: %v", closeErr)
+			}
+
+			g.conn = nil
+		}
+	}()
+
 	reply, err := conn.RequestName(gnomeDBusName, dbus.NameFlagDoNotQueue|dbus.NameFlagReplaceExisting)
 	if err != nil {
 		return fmt.Errorf("failed to request D-Bus name %s: %w", gnomeDBusName, err)
@@ -149,6 +162,8 @@ func (g *gnomeBackend) Register() error {
 	}
 
 	log.Printf("Hotkey GNOME: Registered shortcut with binding %s", trigger)
+
+	cleanup = false // Success — don't close the connection
 
 	return nil
 }

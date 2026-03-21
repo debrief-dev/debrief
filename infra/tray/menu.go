@@ -51,10 +51,16 @@ func SetupMenu(windowSignalChan chan<- string, shouldQuit chan<- bool) {
 			for {
 				select {
 				case <-mShow.ClickedCh:
-					handlers.WindowSignal <- "show"
+					select {
+					case handlers.WindowSignal <- "show":
+					default:
+					}
 
 				case <-mHide.ClickedCh:
-					handlers.WindowSignal <- "hide"
+					select {
+					case handlers.WindowSignal <- "hide":
+					default:
+					}
 
 				case <-mQuit.ClickedCh:
 					handlers.ShouldQuit <- true
