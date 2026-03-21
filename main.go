@@ -97,6 +97,22 @@ func main() {
 	// Quit signal - only true when explicitly quitting from tray
 	shouldQuit := make(chan bool, 1)
 
+	configPath, cfg, err := loadConfig()
+	if err != nil {
+		log.Printf("Config: %v, using defaults", err)
+	}
+
+	// Build hotkey presets once; reused for initial registration, UI settings, and tray
+	hotkeyPresets := hotkey.BuildPresets()
+
+	// Look up the configured preset for initial hotkey registration
+	initPreset := hotkeyPresets[cfg.HotkeyPreset]
+	hotkeyMods := initPreset.Modifiers
+	hotkeyKey := initPreset.Key
+
+	// Pre-compute hint strings with the initial hotkey display name
+	ui.RebuildHints(initPreset.DisplayName)
+
 	// Initialize system tray in a goroutine (blocking call).
 	// On macOS, we wait for the first window to be ready so that Gio's NSApp
 	// run loop is active before creating the NSStatusItem.
@@ -109,7 +125,7 @@ func main() {
 		}
 
 		log.Println("Starting system tray")
-		tray.Initialize(windowSignalChan, shouldQuit)
+		tray.Initialize(windowSignalChan, shouldQuit, initPreset.DisplayName)
 	}()
 
 	// Initialize window controller
@@ -125,27 +141,7 @@ func main() {
 		signalDirty atomic.Bool
 	)
 
-	configPath, err := config.ConfigPath()
-	if err != nil {
-		log.Printf("Error resolving config path: %v", err)
-	}
-
-	cfg, err := config.LoadConfig(configPath)
-	if err != nil {
-		log.Printf("Error loading config: %v, using defaults", err)
-
-		cfg = config.DefaultConfig()
-	}
-
 	sourceManager := shell.NewShellManager()
-
-	// Build hotkey presets once; reused for initial registration and UI settings
-	hotkeyPresets := hotkey.BuildPresets()
-
-	// Look up the configured preset for initial hotkey registration
-	initPreset := hotkeyPresets[cfg.HotkeyPreset]
-	hotkeyMods := initPreset.Modifiers
-	hotkeyKey := initPreset.Key
 
 	// Register global hotkey (from config or default)
 	hotkeyManager := hotkey.NewManager(windowSignalChan)
@@ -829,6 +825,7 @@ func run(p *runParams) *savedUIState {
 				appState.Hotkeys.Success = r.Success
 				if r.Success {
 					appState.Config.HotkeyPreset = r.PresetID
+					ui.RebuildHints(appState.Hotkeys.Presets[r.PresetID].DisplayName)
 				}
 			default:
 			}
@@ -909,4 +906,20 @@ func syncAutoStartState(cfg *config.Config) bool {
 	}
 
 	return enabled
+}
+
+// loadConfig resolves the config path and loads the configuration.
+// On any error it returns defaults and the path for future saves.
+func loadConfig() (string, *config.Config, error) {
+	path, err := config.ConfigPath()
+	if err != nil {
+		return "", config.DefaultConfig(), fmt.Errorf("resolving config path: %w", err)
+	}
+
+	cfg, err := config.LoadConfig(path)
+	if err != nil {
+		return path, config.DefaultConfig(), fmt.Errorf("loading config: %w", err)
+	}
+
+	return path, cfg, nil
 }

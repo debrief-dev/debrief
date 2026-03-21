@@ -22,7 +22,7 @@ var (
 )
 
 // SetupMenu initializes the system tray menu
-func SetupMenu(windowSignalChan chan<- string, shouldQuit chan<- bool) {
+func SetupMenu(windowSignalChan chan<- string, shouldQuit chan<- bool, hotkeyHint string) {
 	setupOnce.Do(func() {
 		handlers = &MenuHandlers{
 			WindowSignal: windowSignalChan,
@@ -40,8 +40,17 @@ func SetupMenu(windowSignalChan chan<- string, shouldQuit chan<- bool) {
 		systray.SetTooltip(ui.WindowTitle)
 
 		// Menu items
-		mShow := systray.AddMenuItem(ui.TrayShowWindowTitle, ui.TrayShowWindowTooltip)
-		mHide := systray.AddMenuItem(ui.TrayHideWindowTitle, ui.TrayHideWindowTooltip)
+		showTitle := ui.TrayShowWindowTitle
+		hideTitle := ui.TrayHideWindowTitle
+
+		if hotkeyHint != "" {
+			suffix := " (" + hotkeyHint + ")"
+			showTitle += suffix
+			hideTitle += suffix
+		}
+
+		mShow := systray.AddMenuItem(showTitle, ui.TrayShowWindowTooltip)
+		mHide := systray.AddMenuItem(hideTitle, ui.TrayHideWindowTooltip)
 
 		systray.AddSeparator()
 

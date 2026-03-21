@@ -28,8 +28,8 @@ const (
 // Search Editor Strings
 const SearchEditorHint = "Search commands..."
 
-// Hint widget Strings
-var hints = func() [4]string {
+// Hint widget Strings — base hints without hotkey suffix.
+var baseHints = func() [4]string {
 	mod := hotkey.Ctrl
 	if platform.IsMacOS() {
 		mod = hotkey.Cmd
@@ -42,6 +42,25 @@ var hints = func() [4]string {
 		model.TabSettings:    "",
 	}
 }()
+
+// hints holds pre-computed hint strings including the hotkey suffix.
+// Initialized from baseHints; rebuilt by RebuildHints when the active preset changes.
+var hints = baseHints
+
+// RebuildHints pre-computes the per-tab hint strings with the given hotkey
+// display name appended. Call once at startup and whenever the preset changes.
+func RebuildHints(hotkeyDisplayName string) {
+	suffix := ""
+	if hotkeyDisplayName != "" {
+		suffix = " · " + hotkeyDisplayName + " to toggle"
+	}
+
+	for i, base := range baseHints {
+		if base != "" {
+			hints[i] = base + suffix
+		}
+	}
+}
 
 func tabHint(t model.Tab) string {
 	return hints[t]
