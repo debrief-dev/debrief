@@ -187,12 +187,9 @@ func findCommandMatch(searchList []*model.CommandEntry, nodePath string, mt matc
 	bestMatchLen := 0
 
 	for i, cmd := range searchList {
-		var matched bool
-
 		if mt == matchFuzzy {
 			// Fuzzy match: command contains node path
-			matched = strings.Contains(cmd.Command, nodePath)
-			if matched {
+			if strings.Contains(cmd.Command, nodePath) {
 				foundIndex = i
 				break // Take first fuzzy match
 			}
@@ -256,20 +253,14 @@ func syncTreeToCommandSelection(app *appstate.State) {
 		return
 	}
 
-	app.StoreMu.RUnlock()
-
-	app.StoreMu.RLock()
-
-	// Always search in DisplayCommands so the found index is valid for the
-	// currently displayed list. This avoids index mismatches when a source
-	// filter or search query has reduced DisplayCommands relative to
-	// LoadedCommands, and prevents overwriting the user's active filter.
+	// Snapshot DisplayCommands under lock, then release before linear scan.
+	// Copy-on-write discipline ensures the snapshot remains valid.
+	// Using one snapshot for both exact and fuzzy scans guarantees consistent indices.
 	searchList := app.Commands.DisplayCommands
+	app.StoreMu.RUnlock()
 
 	// Find the best matching command (prefer exact match or longest prefix)
 	foundIndex := findCommandMatch(searchList, nodePath, matchExact)
-
-	app.StoreMu.RUnlock()
 
 	if foundIndex >= 0 {
 		app.Commands.SelectedIndex = foundIndex
@@ -283,13 +274,8 @@ func syncTreeToCommandSelection(app *appstate.State) {
 		return
 	}
 
-	// No exact/prefix match - try fuzzy matching
-
-	app.StoreMu.RLock()
-
-	fuzzyFoundIndex := findCommandMatch(app.Commands.DisplayCommands, nodePath, matchFuzzy)
-
-	app.StoreMu.RUnlock()
+	// No exact/prefix match - try fuzzy matching (same snapshot for consistency)
+	fuzzyFoundIndex := findCommandMatch(searchList, nodePath, matchFuzzy)
 
 	if fuzzyFoundIndex >= 0 {
 		app.Commands.SelectedIndex = fuzzyFoundIndex

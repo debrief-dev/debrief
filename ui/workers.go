@@ -174,7 +174,7 @@ func updateHistory(state *appstate.State) {
 	state.LoadError = nil
 
 	// Clear metadata cache when store (and its CommandEntry objects) is replaced
-	clear(state.Commands.MetadataCache)
+	state.Commands.MetadataCache = make(map[*model.CommandEntry]string)
 
 	// Initialize/reload commands
 	initializeCommandsLocked(state)

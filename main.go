@@ -605,13 +605,15 @@ func run(p *runParams) *savedUIState {
 			Presets:          p.hotkeyPresets,
 			PresetClickables: make([]widget.Clickable, hotkey.PresetCount),
 			SelectedPresetID: cfg.HotkeyPreset,
+			ResultChan:       make(chan appstate.HotkeyResult, 1),
 		},
 
 		ShellFilter: nil,                                // nil = show all shells
 		ShellBadges: make(map[string]*widget.Clickable), // Initialize badge widgets map
 
-		SettingsList:     widget.List{List: layout.List{Axis: layout.Vertical}},
-		AutoStartEnabled: syncAutoStartState(cfg),
+		SettingsList:        widget.List{List: layout.List{Axis: layout.Vertical}},
+		AutoStartEnabled:    syncAutoStartState(cfg),
+		AutoStartResultChan: make(chan appstate.AutostartResult, 1),
 
 		StoreShutdown: make(chan struct{}), // Unbuffered: signal store/polling goroutine to stop
 	}
@@ -815,6 +817,30 @@ func run(p *runParams) *savedUIState {
 			}
 
 			lastFrameMetric = ev.Metric
+
+			// Drain settings result channels before rendering so results
+			// are visible in the current frame. Both channels are buffered(1);
+			// goroutines send exactly one result per invocation.
+			select {
+			case r := <-appState.Hotkeys.ResultChan:
+				appState.Hotkeys.Error = r.Error
+
+				appState.Hotkeys.Success = r.Success
+				if r.Success {
+					appState.Config.HotkeyPreset = r.PresetID
+				}
+			default:
+			}
+
+			select {
+			case r := <-appState.AutoStartResultChan:
+				appState.AutoStartError = r.Error
+				appState.AutoStartSuccess = r.Success
+				appState.AutoStartEnabled = r.NewEnabled
+				appState.Config.AutoStart = r.AutoStart
+				appState.AutoStartUpdating = false
+			default:
+			}
 
 			gtx := app.NewContext(&ops, ev)
 			ui.RenderFrame(gtx, appState, theme)
