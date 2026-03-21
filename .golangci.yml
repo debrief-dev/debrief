@@ -14,9 +14,9 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(history)
+        - prefix(github.com/debrief-dev/debrief)
     gofumpt:
-      module-path: history
+      module-path: github.com/debrief-dev/debrief
 
 linters:
   enable:

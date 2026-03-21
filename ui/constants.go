@@ -2,6 +2,7 @@ package ui
 
 import (
 	"gioui.org/unit"
+
 	"github.com/debrief-dev/debrief/data/model"
 	"github.com/debrief-dev/debrief/infra/hotkey"
 	"github.com/debrief-dev/debrief/infra/platform"
