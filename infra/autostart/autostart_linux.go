@@ -134,7 +134,7 @@ func systemAutostartExists() bool {
 // desktopFileIsHidden reads a desktop file and returns true if it contains
 // Hidden=true.
 func desktopFileIsHidden(path string) (bool, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return false, fmt.Errorf("failed to open desktop file: %w", err)
 	}
@@ -148,7 +148,11 @@ func desktopFileIsHidden(path string) (bool, error) {
 		}
 	}
 
-	return false, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return false, fmt.Errorf("failed to read desktop file: %w", err)
+	}
+
+	return false, nil
 }
 
 func userAutostartPath() (string, error) {
