@@ -100,15 +100,13 @@ func handleSearchInput(app *appstate.State) {
 
 		app.StoreMu.RUnlock()
 
-		// Reset selection when user types (return to search mode)
+		// Reset command selection when user types (return to search mode)
 		app.Commands.SelectedIndex = -1 // UI-only state
 		app.NeedScrollToSel = false
 
-		// Clear shared state with lock
-		app.StoreMu.Lock()
-		app.Tree.SelectedNode = -1
-		app.Tree.SelectedNodePath = ""
-		app.StoreMu.Unlock()
+		// Don't clear tree selection here — it causes visible blinking because
+		// the tree rebuild is async. NeedInitialSel will overwrite the selection
+		// once the rebuild completes, providing a seamless transition.
 	}
 
 	// Always update current query
@@ -129,7 +127,9 @@ func executeSearch(app *appstate.State, query string) {
 	app.StoreMu.Lock()
 
 	executeSearchLocked(app, query)
-	// Request tree rebuild after search completes
+	// Request async tree rebuild — must NOT be synchronous because renderSearchInput
+	// runs AFTER renderTreeView in the same frame. A sync rebuild would replace node
+	// pointers mid-frame, breaking Gio event target matching for clicks and hovers.
 	RequestTreeRebuild(app)
 
 	app.StoreMu.Unlock()

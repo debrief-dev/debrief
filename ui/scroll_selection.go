@@ -81,15 +81,20 @@ func syncCommandToTreeSelection(app *appstate.State) {
 
 	app.StoreMu.RLock()
 
-	if app.Commands.SelectedIndex >= 0 && app.Commands.SelectedIndex < len(app.Commands.DisplayCommands) {
+	switch {
+	case app.Commands.SelectedIndex >= 0 && app.Commands.SelectedIndex < len(app.Commands.DisplayCommands):
 		selectedCmd = app.Commands.DisplayCommands[app.Commands.SelectedIndex].Command
 		hasSelection = true
-	} else if app.Commands.LastSelectedIndex >= 0 && app.Commands.LastSelectedCmd != "" {
+	case len(app.Commands.DisplayCommands) > 0:
+		// Commands tab hasn't selected yet (e.g. search just ran) —
+		// pick the best match (last item, sorted worst-to-best)
+		selectedCmd = app.Commands.DisplayCommands[len(app.Commands.DisplayCommands)-1].Command
+		hasSelection = true
+
+	case app.Commands.LastSelectedIndex >= 0 && app.Commands.LastSelectedCmd != "":
 		// Try to restore from last known selection
 		selectedCmd = app.Commands.LastSelectedCmd
 		hasSelection = true
-
-		log.Printf("Using last known command selection: %s", selectedCmd)
 	}
 
 	app.StoreMu.RUnlock()
@@ -144,6 +149,7 @@ func syncCommandToTreeSelection(app *appstate.State) {
 		if bestMatch >= 0 && bestMatch < len(app.Tree.Nodes) && app.Tree.Nodes[bestMatch].Path == finalPath {
 			app.Tree.SelectedNode = bestMatch
 			app.Tree.SelectedNodePath = finalPath
+			app.Tree.NeedInitialSel = false // Prevent pending NeedInitialSel from overriding
 			// Place target at top of viewport directly — avoids unreliable height
 			// estimation that calculateSmartScrollPositionVariable would need for
 			// items far from the previously visible range.

@@ -171,14 +171,25 @@ func renderTreeView(gtx C, app *appstate.State, theme *material.Theme) D {
 		app.NeedScrollToSel = false
 	}
 
-	// Auto-select last item on initial load or tab switch (mirrors Commands tab behavior)
-	if app.Tree.NeedInitialSel && selectedTreeNode == -1 && len(nodes) > 0 {
-		lastIndex := len(nodes) - 1
+	// Auto-select tree node matching the search query.
+	// Best match index is pre-computed by rebuildTreeLocked to avoid
+	// O(n) scan on the UI thread. Falls back to last item when no search is active.
+	//
+	// Deferred while a tree rebuild is pending because the node list may be stale.
+	if app.Tree.NeedInitialSel && len(nodes) > 0 &&
+		!app.Tree.NeedsRebuild.Load() {
+		app.StoreMu.RLock()
+		bestMatch := app.Tree.BestMatchIndex
+		app.StoreMu.RUnlock()
+
+		targetIndex := len(nodes) - 1 // fallback: last item, like Commands tab
+		if bestMatch >= 0 && bestMatch < len(nodes) {
+			targetIndex = bestMatch
+		}
 
 		app.StoreMu.Lock()
-		// Re-validate bounds after acquiring lock
-		if app.Tree.SelectedNode == -1 && lastIndex < len(app.Tree.Nodes) {
-			app.Tree.SelectedNode = lastIndex
+		if targetIndex < len(app.Tree.Nodes) {
+			app.Tree.SelectedNode = targetIndex
 			app.Tree.SelectedNodePath = ""
 		}
 
@@ -445,7 +456,7 @@ func handleTreeNodePointerEvents(gtx C, app *appstate.State, node *model.TreeDis
 					needsInvalidate = true
 				}
 			case pointer.Press:
-				handleTreeNodeClick(gtx, app, node, index)
+				handleTreeNodeClick(gtx, app, index)
 			}
 		}
 	}
@@ -455,30 +466,22 @@ func handleTreeNodePointerEvents(gtx C, app *appstate.State, node *model.TreeDis
 	}
 }
 
-// handleTreeNodeClick handles clicks on tree nodes
-func handleTreeNodeClick(gtx C, app *appstate.State, node *model.TreeDisplayNode, index int) {
-	// Validate index and get current state atomically
+// handleTreeNodeClick handles clicks on tree nodes.
+// Re-reads the current node at the given index to get the latest state.
+func handleTreeNodeClick(gtx C, app *appstate.State, index int) {
 	app.StoreMu.RLock()
-	isValidIndex := index >= 0 && index < len(app.Tree.Nodes)
-	// Verify node pointer is still valid by checking it matches
-	if isValidIndex && app.Tree.Nodes[index] != node {
-		isValidIndex = false
-	}
 
-	app.StoreMu.RUnlock()
-
-	if !isValidIndex {
+	if index < 0 || index >= len(app.Tree.Nodes) {
+		app.StoreMu.RUnlock()
 		return
 	}
 
-	// Tree is always expanded, so clicking any node with commands copies it
-	if node.IsLeaf && node.Node != nil && len(node.Node.Commands) > 0 {
-		// Leaf node with commands: copy the most frequent command and minimize
-		if node.MostFrequentCmd == nil {
-			return
-		}
+	node := app.Tree.Nodes[index]
+	app.StoreMu.RUnlock()
 
-		copyTextAndMinimize(gtx, app, node.MostFrequentCmd.Command)
+	// Copy the node path and minimize (matches Enter key behavior)
+	if node.Path != "" {
+		copyTextAndMinimize(gtx, app, node.Path)
 	}
 }
 
