@@ -18,9 +18,6 @@ import (
 // parserDebounceDelay is the debounce delay for file change events in the background parser
 const parserDebounceDelay = 100 * time.Millisecond
 
-// treeRebuildDebounceDelay is the debounce delay for tree rebuild requests
-const treeRebuildDebounceDelay = 50 * time.Millisecond
-
 // statsRebuildDebounceDelay is the debounce delay for statistics rebuild requests
 const statsRebuildDebounceDelay = 50 * time.Millisecond
 
@@ -234,27 +231,7 @@ func StartTreeRebuildWorker(state *appstate.State) {
 		for {
 			select {
 			case <-state.Tree.RebuildChan:
-				// Debounce: wait for rapid requests to settle
-				debounceTimer := time.NewTimer(treeRebuildDebounceDelay)
-
-			debounceLoop:
-				for {
-					select {
-					case <-debounceTimer.C:
-						// Debounce period elapsed, proceed with rebuild
-						break debounceLoop
-					case <-state.Tree.RebuildChan:
-						// New rebuild request, restart debounce
-						drainAndReset(debounceTimer, treeRebuildDebounceDelay)
-					case <-state.Tree.RebuildShutdown:
-						debounceTimer.Stop()
-						log.Println("Tree rebuild worker shutting down")
-
-						return
-					}
-				}
-
-				// Perform async rebuild
+				// the rebuild uses cached fuzzy results as pre-filter.
 				performAsyncTreeRebuild(state)
 
 				// Notify waiters via broadcast: close current channel, create fresh one
@@ -273,40 +250,47 @@ func StartTreeRebuildWorker(state *appstate.State) {
 	log.Println("Tree rebuild worker started")
 }
 
-// performAsyncTreeRebuild rebuilds the tree without blocking the UI
-func performAsyncTreeRebuild(state *appstate.State) {
-	// Step 1: Copy pointers and state with minimal RLock
-	state.StoreMu.RLock()
+// rebuildTreeLocked rebuilds the tree synchronously.
+// Must be called with StoreMu held (Lock or RLock depending on caller).
+// Caller must ensure store is non-nil.
+//
+// Uses substring matching (not fuzzy search) for tree filtering so the tree
+// only shows commands that literally contain the query. Fuzzy matches produce
+// too much clutter in the hierarchical tree view.
+func rebuildTreeLocked(state *appstate.State) {
 	store := state.Store
 	currentQuery := state.CurrentQuery
 	shellFilter := state.ShellFilter
 	cachedMatchingCommands := state.SearchMatchingCommands
-	state.StoreMu.RUnlock()
 
-	if store == nil {
-		return
-	}
-
-	// Step 1.5: Extract tree data from store (immutable after creation)
+	// Extract tree data from store (immutable after creation)
 	treeRoot := store.Tree()
 
-	// Step 1.6: Resolve matching commands for search filtering
+	// Resolve matching commands for tree filtering using substring matching.
+	// Use cached fuzzy results as pre-filter to avoid scanning all commands.
 	var matchingCommands map[*model.CommandEntry]bool
 
 	if currentQuery != "" {
-		if cachedMatchingCommands != nil {
-			matchingCommands = cachedMatchingCommands
-		} else {
-			searchResults := store.Search(currentQuery)
+		queryLower := strings.ToLower(currentQuery)
 
-			matchingCommands = make(map[*model.CommandEntry]bool, len(searchResults))
-			for _, result := range searchResults {
-				matchingCommands[result.Entry] = true
+		// Use fuzzy results as candidate set when available (much smaller than all commands)
+		candidates := store.AllCommands()
+		if cachedMatchingCommands != nil {
+			candidates = make([]*model.CommandEntry, 0, len(cachedMatchingCommands))
+			for cmd := range cachedMatchingCommands {
+				candidates = append(candidates, cmd)
+			}
+		}
+
+		matchingCommands = make(map[*model.CommandEntry]bool, len(candidates))
+		for _, cmd := range candidates {
+			if strings.Contains(strings.ToLower(cmd.Command), queryLower) {
+				matchingCommands[cmd] = true
 			}
 		}
 	}
 
-	// Step 2: Perform rebuild WITHOUT locks (immutable data)
+	// Flatten tree for display
 	newTreeNodes := tree.FlattenForDisplay(
 		treeRoot,
 		store.TreeNodesCount(),
@@ -314,7 +298,7 @@ func performAsyncTreeRebuild(state *appstate.State) {
 		shellFilter,
 	)
 
-	// Step 3.5: Build index map for O(1) path lookups (outside lock, immutable data)
+	// Build index map for O(1) path lookups
 	newTreeNodeIndex := make(map[string]int, len(newTreeNodes))
 	for i, node := range newTreeNodes {
 		if node.Path != "" {
@@ -322,19 +306,71 @@ func performAsyncTreeRebuild(state *appstate.State) {
 		}
 	}
 
-	// Step 4: Atomically swap the new tree nodes with brief Lock
-	state.StoreMu.Lock()
+	// Pre-compute best match index for current query.
+	// Priority: exact match > query starts with path > path contains query.
+	bestMatchIndex := -1
+
+	if currentQuery != "" && len(newTreeNodes) > 0 {
+		queryLower := strings.ToLower(currentQuery)
+		bestLen := 0
+		substringMatch := -1
+
+		for i, node := range newTreeNodes {
+			if strings.EqualFold(node.Path, currentQuery) {
+				// Exact match — use immediately
+				bestMatchIndex = i
+				break
+			}
+
+			pathLen := len(node.Path)
+			// Query starts with path (e.g. query="kubectl get pods", path="kubectl get")
+			if pathLen > bestLen && pathLen+1 <= len(currentQuery) &&
+				currentQuery[pathLen] == ' ' &&
+				strings.EqualFold(currentQuery[:pathLen], node.Path) {
+				bestMatchIndex = i
+				bestLen = pathLen
+			}
+			// Path contains query (e.g. query="golangci", path="go install ...golangci-lint...")
+			// Take first substring match as fallback
+			if substringMatch < 0 && strings.Contains(strings.ToLower(node.Path), queryLower) {
+				substringMatch = i
+			}
+		}
+
+		if bestMatchIndex < 0 {
+			bestMatchIndex = substringMatch
+		}
+	}
+
+	// Swap results
 	state.Tree.Nodes = newTreeNodes
-	state.Tree.NodePathIndex = newTreeNodeIndex // Swap index atomically with nodes
-	state.Tree.NodesGeneration++                // Increment to invalidate stale references
-	state.Tree.NeedsRebuild.Store(false)        // Use atomic store
-	invalidateHeightCaches(state)               // Clear cached heights
+	state.Tree.NodePathIndex = newTreeNodeIndex
+	state.Tree.BestMatchIndex = bestMatchIndex
+	state.Tree.NodesGeneration++
+	state.Tree.NeedsRebuild.Store(false)
+	invalidateHeightCaches(state)
+
+	log.Printf("[TREE] Rebuild completed: %d nodes", len(newTreeNodes))
+}
+
+// performAsyncTreeRebuild rebuilds the tree from the background worker.
+// Used for non-search rebuilds (data reload, shell filter changes).
+func performAsyncTreeRebuild(state *appstate.State) {
+	// Check store exists with brief RLock
+	state.StoreMu.RLock()
+	hasStore := state.Store != nil
+	state.StoreMu.RUnlock()
+
+	if !hasStore {
+		return
+	}
+
+	// rebuildTreeLocked needs write access (swaps Tree.Nodes etc.)
+	state.StoreMu.Lock()
+	rebuildTreeLocked(state)
 	state.StoreMu.Unlock()
 
-	// Step 5: Trigger UI redraw (MarkDirty survives Gio's invalidation coalescing)
 	state.MarkDirty()
-
-	log.Printf("[TREE] Async rebuild completed: %d nodes", len(newTreeNodes))
 }
 
 // requestStatsRebuild signals the background worker to rebuild statistics

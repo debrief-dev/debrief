@@ -63,6 +63,7 @@ type TreeState struct {
 	// Selection state (protected by StoreMu for atomic updates with Nodes)
 	SelectedNode     int    // Selected tree node index (-1 = none)
 	SelectedNodePath string // Path of selected node, used to maintain selection across rebuilds
+	BestMatchIndex   int    // Pre-computed best match for current query (-1 = use fallback)
 
 	// UI state (UI-THREAD-ONLY)
 	HoveredNode      int    // Hovered tree node index (-1 = none)
