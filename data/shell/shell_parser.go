@@ -1,7 +1,9 @@
 package shell
 
 import (
+	"bufio"
 	"os"
+	"strings"
 
 	"github.com/debrief-dev/debrief/data/model"
 )
@@ -56,6 +58,53 @@ func detectFromPaths(paths []string, shellType model.Shell, parser ShellParser) 
 	}
 
 	return nil
+}
+
+// accumulateMultilineSlice consumes additional lines from a pre-read slice until
+// isComplete returns true or maxMultilineAccum is reached.
+// Returns the assembled command and updated index/lineNum.
+func accumulateMultilineSlice(cmd string, lines []string, i, lineNum int, isComplete func(string) bool) (string, int, int) {
+	var b strings.Builder
+
+	b.WriteString(cmd)
+
+	accumulated := 1
+	for i+1 < len(lines) && !isComplete(b.String()) && accumulated < maxMultilineAccum {
+		i++
+		lineNum++
+		accumulated++
+
+		nextLine := strings.TrimSpace(lines[i])
+		if nextLine != "" {
+			b.WriteByte(' ')
+			b.WriteString(nextLine)
+		}
+	}
+
+	return b.String(), i, lineNum
+}
+
+// accumulateMultilineScanner consumes additional lines from a bufio.Scanner until
+// isComplete returns true or maxMultilineAccum is reached.
+// Returns the assembled command and updates lineNum via pointer.
+func accumulateMultilineScanner(cmd string, scanner *bufio.Scanner, lineNum *int, isComplete func(string) bool) string {
+	var b strings.Builder
+
+	b.WriteString(cmd)
+
+	accumulated := 1
+	for !isComplete(b.String()) && accumulated < maxMultilineAccum && scanner.Scan() {
+		*lineNum++
+		accumulated++
+
+		nextLine := strings.TrimSpace(scanner.Text())
+		if nextLine != "" {
+			b.WriteByte(' ')
+			b.WriteString(nextLine)
+		}
+	}
+
+	return b.String()
 }
 
 // parseBashHistoryAs delegates to BashSource.ParseHistoryFile and re-tags

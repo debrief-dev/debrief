@@ -99,20 +99,13 @@ func (bs *BashShellParser) ParseHistoryFile(path string) ([]*model.CommandEntry,
 		}
 
 		// Handle multiline function definitions.
-		// If the accumulated command starts a function but braces aren't balanced yet,
-		// keep consuming lines until balanced (or EOF).
 		if bs.isFunctionStart(fullCommand) && !syntax.IsBalancedBraces(fullCommand) {
-			accumulated := 1
-			for i+1 < len(lines) && !syntax.IsBalancedBraces(fullCommand) && accumulated < maxFunctionLines {
-				i++
-				lineNum++
-				accumulated++
+			fullCommand, i, lineNum = accumulateMultilineSlice(fullCommand, lines, i, lineNum, syntax.IsBalancedBraces)
+		}
 
-				nextLine := strings.TrimSpace(lines[i])
-				if nextLine != "" {
-					fullCommand = fullCommand + " " + nextLine
-				}
-			}
+		// Handle multiline loop constructs.
+		if syntax.IsBashLoopPrefix(fullCommand) && !syntax.HasBalancedDoBlock(fullCommand) {
+			fullCommand, i, lineNum = accumulateMultilineSlice(fullCommand, lines, i, lineNum, syntax.HasBalancedDoBlock)
 		}
 
 		fullCommand = bs.NormalizeCommand(fullCommand)

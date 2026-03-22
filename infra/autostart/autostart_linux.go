@@ -107,7 +107,7 @@ func writeUserDesktopFile(path string, hidden bool) error {
 	content := "[Desktop Entry]\n" +
 		"Type=Application\n" +
 		"Name=Debrief\n" +
-		"Exec=\"" + exePath + "\"\n" +
+		"Exec=\"" + exePath + "\" --hidden\n" +
 		"X-GNOME-Autostart-enabled=true\n" +
 		"StartupNotify=false\n" +
 		"Terminal=false\n"

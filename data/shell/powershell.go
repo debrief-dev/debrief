@@ -20,10 +20,10 @@ const (
 	// commandTimeout is the maximum time to wait for external commands.
 	commandTimeout = 10 * time.Second
 
-	// maxFunctionLines caps how many lines a single multiline function definition
-	// may span. Prevents unbounded accumulation when the history file contains an
-	// unclosed brace block (e.g. the user typed "function foo {" and never closed it).
-	maxFunctionLines = 50
+	// maxMultilineAccum caps how many lines a single multiline construct
+	// (function definition or loop) may span. Prevents unbounded accumulation
+	// when the history file contains an unclosed block.
+	maxMultilineAccum = 50
 )
 
 var (
@@ -187,7 +187,7 @@ func (ps *PowerShellParser) Detect() *ShellMetadata {
 
 // ParseHistoryFile reads and parses the history file at the given path.
 // It handles PowerShell backtick line continuations, multiline function
-// definitions (capped at maxFunctionLines), and deduplicates by command text.
+// definitions and loops (capped at maxMultilineAccum), and deduplicates by command text.
 func (ps *PowerShellParser) ParseHistoryFile(path string) ([]*model.CommandEntry, error) {
 	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
@@ -231,21 +231,11 @@ func (ps *PowerShellParser) ParseHistoryFile(path string) ([]*model.CommandEntry
 			line = nextLine
 		}
 
-		// Accumulate additional lines for multiline function definitions until
-		// braces balance or we hit the safety cap (maxFunctionLines).
-		// isFunctionStart detects the opening of a potentially incomplete function
-		// (before braces are balanced); IsBalancedBraces determines when to stop.
-		if ps.isFunctionStart(fullCommand) && !syntax.IsBalancedBraces(fullCommand) {
-			accumulated := 1
-			for i+1 < len(lines) && !syntax.IsBalancedBraces(fullCommand) && accumulated < maxFunctionLines {
-				i++
-				lineNum++
-				accumulated++
-
-				if nextLine := strings.TrimSpace(lines[i]); nextLine != "" {
-					fullCommand += " " + nextLine
-				}
-			}
+		// Accumulate additional lines for multiline function/loop definitions until
+		// braces balance or we hit the safety cap (maxMultilineAccum).
+		// Both functions and loops in PowerShell use braces, so a single check suffices.
+		if (ps.isFunctionStart(fullCommand) || syntax.IsPowerShellLoopPrefix(fullCommand)) && !syntax.IsBalancedBraces(fullCommand) {
+			fullCommand, i, lineNum = accumulateMultilineSlice(fullCommand, lines, i, lineNum, syntax.IsBalancedBraces)
 		}
 
 		fullCommand = ps.NormalizeCommand(fullCommand)

@@ -89,6 +89,11 @@ func (zs *ZshShellParser) ParseHistoryFile(path string) ([]*model.CommandEntry, 
 			cmd = strings.TrimSuffix(cmd, "\\") + " " + scanner.Text()
 		}
 
+		// Handle multiline loop constructs.
+		if syntax.IsBashLoopPrefix(cmd) && !syntax.HasBalancedDoBlock(cmd) {
+			cmd = accumulateMultilineScanner(cmd, scanner, &lineNum, syntax.HasBalancedDoBlock)
+		}
+
 		cmd = zs.NormalizeCommand(cmd)
 		if cmd == "" {
 			continue

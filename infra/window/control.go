@@ -229,8 +229,8 @@ func (c *Controller) MarkClosed() {
 	log.Println("Window: Marked as closed")
 }
 
-// MarkOpened marks the window as opened (created/recreated)
-// Call this when a new window is created
+// MarkOpened marks the window as opened (created/recreated).
+// Call this when a new window is created.
 func (c *Controller) MarkOpened() {
 	c.mu.Lock()
 	defer c.mu.Unlock()

@@ -145,7 +145,90 @@ func TestTokenizeCommand(t *testing.T) {
 			input:    `function Get-Data { Write-Host "test" }`,
 			expected: []string{`function Get-Data { Write-Host "test" }`},
 		},
+		{
+			name:     "Bash for loop as single token",
+			input:    "for i in 1 2 3; do echo $i; done",
+			expected: []string{"for i in 1 2 3; do echo $i; done"},
+		},
+		{
+			name:     "PowerShell foreach as single token",
+			input:    "foreach ($item in $list) { Write-Host $item }",
+			expected: []string{"foreach ($item in $list) { Write-Host $item }"},
+		},
+		{
+			name:     "Fish for loop as single token",
+			input:    "for x in 1 2 3; echo $x; end",
+			expected: []string{"for x in 1 2 3; echo $x; end"},
+		},
+		{
+			name:     "Bash loop with internal operators as single token",
+			input:    `for i in 1 2; do echo $i && echo "step"; done`,
+			expected: []string{`for i in 1 2; do echo $i && echo "step"; done`},
+		},
+		{
+			name:     "Single env var prefix merged with command",
+			input:    "ENV1=VAL1 go fmt",
+			expected: []string{"ENV1=VAL1 go", "fmt"},
+		},
+		{
+			name:     "Multiple env var prefixes merged with command",
+			input:    "GOOS=linux GOARCH=amd64 go build -o app",
+			expected: []string{"GOOS=linux GOARCH=amd64 go", "build", "-o", "app"},
+		},
+		{
+			name:     "Env var with underscore in key",
+			input:    "MY_VAR=123 python script.py",
+			expected: []string{"MY_VAR=123 python", "script.py"},
+		},
+		{
+			name:     "No env var prefix unchanged",
+			input:    "go fmt ./...",
+			expected: []string{"go", "fmt", "./..."},
+		},
+		{
+			name:     "Only env vars no command",
+			input:    "FOO=bar BAZ=qux",
+			expected: []string{"FOO=bar", "BAZ=qux"},
+		},
+		{
+			name:     "Env var with empty value",
+			input:    "DEBUG= go test",
+			expected: []string{"DEBUG= go", "test"},
+		},
+		{
+			name:     "Non-env-var with equals not merged",
+			input:    "go build -ldflags=-s",
+			expected: []string{"go", "build", "-ldflags=-s"},
+		},
 	}
 
 	runTokenizeTests(t, tests, TokenizeCommand)
+}
+
+func TestIsEnvVarAssignment(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"FOO=bar", true},
+		{"MY_VAR=123", true},
+		{"_PRIVATE=val", true},
+		{"A=B", true},
+		{"DEBUG=", true},
+		{"FOO=bar=baz", true},
+		{"123=val", false},
+		{"-flag=val", false},
+		{"noequals", false},
+		{"=val", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := isEnvVarAssignment(tt.input)
+			if result != tt.expected {
+				t.Errorf("isEnvVarAssignment(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
 }

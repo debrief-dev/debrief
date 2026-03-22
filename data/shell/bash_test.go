@@ -139,6 +139,36 @@ git commit`
 	}
 }
 
+func TestBashMultilineForLoop(t *testing.T) {
+	content := "for i in 1 2 3\ndo\necho $i\ndone\necho after"
+
+	commands := parseTestHistory(t, &BashShellParser{}, content, "bash_history_test")
+
+	assertCommandTexts(t, commands, []string{
+		"for i in 1 2 3 do echo $i done",
+		"echo after",
+	})
+}
+
+func TestBashMultilineWhileLoop(t *testing.T) {
+	content := "while true\ndo\nsleep 1\ndone"
+
+	assertSingleCommand(t, &BashShellParser{}, content, "bash_history_test",
+		"while true do sleep 1 done", "multiline while loop")
+}
+
+func TestBashSingleLineLoop(t *testing.T) {
+	assertSingleCommand(t, &BashShellParser{}, "for i in 1 2 3; do echo $i; done",
+		"bash_history_test", "for i in 1 2 3; do echo $i; done", "single-line for loop")
+}
+
+func TestBashLoopWithInternalOperators(t *testing.T) {
+	content := "for i in 1 2; do echo $i && echo step; done"
+
+	assertSingleCommand(t, &BashShellParser{}, content, "bash_history_test",
+		content, "loop with internal operators")
+}
+
 func TestBashLineNumbersPreserved(t *testing.T) {
 	commands := parseTestHistory(t, &BashShellParser{}, "git add . && git commit\ngit push", "bash_history_test")
 

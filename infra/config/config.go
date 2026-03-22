@@ -35,30 +35,28 @@ func DefaultConfig() *Config {
 
 // LoadConfig reads configuration from disk.
 // Returns default config when the file does not exist or cannot be parsed.
-// The boolean return value is true when an existing config file was loaded
-// (i.e. this is not the first run).
-func LoadConfig(path string) (*Config, bool, error) {
+func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Printf("Config file not found at %s, using defaults", path)
-			return DefaultConfig(), false, nil
+			return DefaultConfig(), nil
 		}
 
-		return nil, false, fmt.Errorf("failed to read config: %w", err)
+		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
 
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		log.Printf("Failed to parse config: %v, using defaults", err)
-		return DefaultConfig(), false, nil
+		return DefaultConfig(), nil
 	}
 
 	cfg.clamp()
 
 	log.Printf("Loaded config from %s", path)
 
-	return &cfg, true, nil
+	return &cfg, nil
 }
 
 // clamp ensures all fields are within valid ranges.

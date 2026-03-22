@@ -145,3 +145,73 @@ func detectPowerShellFunction(command string) bool {
 
 	return IsBalancedBraces(trimmed) && strings.Contains(trimmed, "{")
 }
+
+// IsLoopConstruct checks if a command is a loop construct.
+func IsLoopConstruct(command string) bool {
+	return detectBashLoop(command) || detectPowerShellLoop(command) || detectFishLoop(command)
+}
+
+// IsBashLoopPrefix checks if a line begins a bash/zsh loop keyword.
+// Used by both the syntax detector and shell parsers for multiline accumulation.
+func IsBashLoopPrefix(line string) bool {
+	trimmed := strings.TrimSpace(line)
+
+	return strings.HasPrefix(trimmed, "for ") ||
+		strings.HasPrefix(trimmed, "for((") ||
+		strings.HasPrefix(trimmed, "for ((") ||
+		strings.HasPrefix(trimmed, "while ") ||
+		strings.HasPrefix(trimmed, "until ") ||
+		strings.HasPrefix(trimmed, "select ")
+}
+
+// IsPowerShellLoopPrefix checks if a line begins a PowerShell loop keyword.
+// Case-insensitive. Excludes ForEach-Object (cmdlet, not control flow).
+// Used by both the syntax detector and shell parsers for multiline accumulation.
+func IsPowerShellLoopPrefix(line string) bool {
+	lower := strings.ToLower(strings.TrimSpace(line))
+
+	if strings.HasPrefix(lower, "foreach-") {
+		return false
+	}
+
+	return strings.HasPrefix(lower, "for ") ||
+		strings.HasPrefix(lower, "for(") ||
+		strings.HasPrefix(lower, "foreach ") ||
+		strings.HasPrefix(lower, "foreach(") ||
+		strings.HasPrefix(lower, "while ") ||
+		strings.HasPrefix(lower, "while(") ||
+		strings.HasPrefix(lower, "do ") ||
+		strings.HasPrefix(lower, "do{")
+}
+
+// detectBashLoop detects complete bash/zsh loop constructs.
+func detectBashLoop(command string) bool {
+	if !IsBashLoopPrefix(command) {
+		return false
+	}
+
+	return HasBalancedDoBlock(strings.TrimSpace(command))
+}
+
+// detectPowerShellLoop detects complete PowerShell loop constructs.
+func detectPowerShellLoop(command string) bool {
+	if !IsPowerShellLoopPrefix(command) {
+		return false
+	}
+
+	trimmed := strings.TrimSpace(command)
+
+	return IsBalancedBraces(trimmed) && strings.Contains(trimmed, "{")
+}
+
+// detectFishLoop detects Fish shell loop constructs.
+// Patterns: for ... end, while ... end
+func detectFishLoop(command string) bool {
+	trimmed := strings.TrimSpace(command)
+
+	if !strings.HasPrefix(trimmed, "for ") && !strings.HasPrefix(trimmed, "while ") {
+		return false
+	}
+
+	return IsBalancedFishBlock(trimmed)
+}
