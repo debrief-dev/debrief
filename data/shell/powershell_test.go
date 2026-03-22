@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/debrief-dev/debrief/data/syntax"
 )
 
 const (
@@ -71,4 +73,35 @@ ls | grep foo
 
 func TestPowerShellFunctionNotSplit(t *testing.T) {
 	assertSingleCommand(t, &PowerShellParser{}, testPSFuncWithOps, "powershell_history_test", testPSFuncWithOps, "function not split")
+}
+
+func TestPowerShellMultilineForLoop(t *testing.T) {
+	content := "for ($i=0; $i -lt 10; $i++) {\n    Write-Host $i\n}\necho after"
+
+	commands := parseTestHistory(t, &PowerShellParser{}, content, "powershell_history_test")
+
+	assertCommandTexts(t, commands, []string{
+		"for ($i=0; $i -lt 10; $i++) { Write-Host $i }",
+		"echo after",
+	})
+}
+
+func TestPowerShellMultilineForeach(t *testing.T) {
+	content := "foreach ($item in $list) {\n    Write-Host $item\n}"
+
+	assertSingleCommand(t, &PowerShellParser{}, content, "powershell_history_test",
+		"foreach ($item in $list) { Write-Host $item }", "multiline foreach loop")
+}
+
+func TestPowerShellMultilineDoWhile(t *testing.T) {
+	content := "do {\n    Write-Host test\n} while ($true)"
+
+	assertSingleCommand(t, &PowerShellParser{}, content, "powershell_history_test",
+		"do { Write-Host test } while ($true)", "multiline do-while loop")
+}
+
+func TestPowerShellForEachObjectNotLoopStart(t *testing.T) {
+	if syntax.IsPowerShellLoopPrefix("ForEach-Object { $_ }") {
+		t.Error("ForEach-Object should not be detected as a loop start")
+	}
 }

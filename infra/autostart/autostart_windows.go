@@ -28,7 +28,7 @@ func Enable() error {
 	}
 	defer key.Close() //nolint:errcheck // registry key close errors are non-actionable
 
-	if err := key.SetStringValue(valueName, exePath); err != nil {
+	if err := key.SetStringValue(valueName, exePath+" --hidden"); err != nil {
 		return fmt.Errorf("failed to set registry value: %w", err)
 	}
 

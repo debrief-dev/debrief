@@ -51,6 +51,28 @@ func TestZshDeduplication(t *testing.T) {
 	assertFrequency(t, commands, "git status", 2)
 }
 
+func TestZshMultilineForLoop(t *testing.T) {
+	commands := parseTestHistory(t, &ZshShellParser{}, `: 1234567890:0;for i in 1 2 3
+do
+echo $i
+done
+: 1234567891:0;echo after
+`, "zsh_history")
+
+	assertCommandTexts(t, commands, []string{
+		"for i in 1 2 3 do echo $i done",
+		"echo after",
+	})
+}
+
+func TestZshMultilineWhileLoop(t *testing.T) {
+	assertSingleCommand(t, &ZshShellParser{}, `: 1234567890:0;while true
+do
+sleep 1
+done
+`, "zsh_history", "while true do sleep 1 done", "multiline while loop")
+}
+
 func TestZshTrailingBackslashAtEOF(t *testing.T) {
 	commands := parseTestHistory(t, &ZshShellParser{}, `: 1234567890:0;echo trailing \`, "zsh_history")
 

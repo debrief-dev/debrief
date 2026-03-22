@@ -57,6 +57,7 @@ type savedUIState struct {
 
 func main() {
 	pprofEnabled := flag.Bool("pprof", false, "start pprof server on localhost:6060")
+	startHiddenFlag := flag.Bool("hidden", false, "start minimized to system tray (used by autostart)")
 
 	flag.Parse()
 
@@ -97,7 +98,7 @@ func main() {
 	// Quit signal - only true when explicitly quitting from tray
 	shouldQuit := make(chan bool, 1)
 
-	configPath, cfg, configExisted, err := loadConfig()
+	configPath, cfg, err := loadConfig()
 	if err != nil {
 		log.Printf("Config: %v, using defaults", err)
 	}
@@ -153,10 +154,8 @@ func main() {
 	go registerHotkey(firstWindowReady, hotkeyManager, hotkeyMods, hotkeyKey)
 
 	var (
-		// Start hidden when a config file already exists (not the first launch).
-		// On first-ever launch the window is shown so the user sees the app.
-		// On subsequent launches (including autostart) the app starts in the tray.
-		startHidden   = configExisted
+		// Start hidden only when launched with --hidden flag (set by autostart).
+		startHidden   = *startHiddenFlag
 		startHiddenMu sync.Mutex
 	)
 
@@ -260,6 +259,39 @@ func main() {
 				destroyed: make(chan struct{}),
 			}
 
+			// Check if we should start hidden (autostart or after close button)
+			startHiddenMu.Lock()
+
+			shouldStartHidden := startHidden
+			startHidden = false // Reset for next time
+
+			startHiddenMu.Unlock()
+
+			// When starting hidden, don't create a window at all.
+			// Signal hotkey/tray so the user can trigger "show", then
+			// block until a show signal arrives.
+			if shouldStartHidden {
+				// Mark controller as closed so the signal handler routes
+				// show/toggle signals through recreateNotify.
+				windowController.MarkClosed()
+
+				if isFirstWindow {
+					signalReady(firstWindowReady, trayReady)
+
+					isFirstWindow = false
+				}
+
+				log.Println("Window: Starting hidden, waiting for show signal")
+
+				select {
+				case <-recreateNotify:
+					log.Println("Window: Show signal received, creating window")
+				case <-shouldQuit:
+					log.Println("Window: Quit signal while hidden")
+					quitApp()
+				}
+			}
+
 			win := new(app.Window)
 			win.Option(app.Title(ui.WindowTitle))
 			win.Option(app.Decorated(false))
@@ -280,18 +312,9 @@ func main() {
 			// Mark window as opened so controller knows it exists
 			windowController.MarkOpened()
 
-			// Check if we should start hidden (after close button was clicked)
-			startHiddenMu.Lock()
-
-			shouldStartHidden := startHidden
-			startHidden = false // Reset for next time
-
-			startHiddenMu.Unlock()
-
-			// Start goroutine to wait for window handle and act accordingly
-			if shouldStartHidden {
-				go waitAndHideWindow(lifecycle, windowController)
-			} else if isFirstWindow {
+			// Start goroutine to wait for window handle and signal
+			// hotkey registration + tray init on first window.
+			if isFirstWindow {
 				go waitAndSignalReady(lifecycle, firstWindowReady, trayReady)
 
 				isFirstWindow = false
@@ -426,18 +449,19 @@ func registerHotkey(ready <-chan struct{}, mgr *hotkey.Manager, modStrs []string
 	}
 }
 
-// waitAndHideWindow waits for the window OS handle to be created, then hides
-// the window. Used when recreating a window that should start hidden.
-func waitAndHideWindow(lifecycle *windowLifecycle, wc *window.Controller) {
-	log.Println("Window: Waiting for OS handle creation to hide window")
-
-	if !waitForWindowHandle(lifecycle.ready, lifecycle.destroyed) {
-		log.Println("Window: Window destroyed before handle ready, skipping hide")
-		return
+// signalReady signals hotkey registration and tray initialization immediately,
+// without waiting for a window handle. Used when starting hidden (no window).
+func signalReady(firstWindowReady chan struct{}, trayReady chan<- struct{}) {
+	select {
+	case firstWindowReady <- struct{}{}:
+		log.Println("Window: Signaled hotkey registration (no window)")
+	default:
 	}
 
-	if wc.Hide() == nil {
-		log.Println("Window recreated and hidden")
+	select {
+	case trayReady <- struct{}{}:
+		log.Println("Window: Signaled tray initialization (no window)")
+	default:
 	}
 }
 
@@ -913,18 +937,16 @@ func syncAutoStartState(cfg *config.Config) bool {
 
 // loadConfig resolves the config path and loads the configuration.
 // On any error it returns defaults and the path for future saves.
-// The boolean return value is true when an existing config file was found
-// (i.e. this is not the very first launch).
-func loadConfig() (string, *config.Config, bool, error) {
+func loadConfig() (string, *config.Config, error) {
 	path, err := config.ConfigPath()
 	if err != nil {
-		return "", config.DefaultConfig(), false, fmt.Errorf("resolving config path: %w", err)
+		return "", config.DefaultConfig(), fmt.Errorf("resolving config path: %w", err)
 	}
 
-	cfg, existed, err := config.LoadConfig(path)
+	cfg, err := config.LoadConfig(path)
 	if err != nil {
-		return path, config.DefaultConfig(), false, fmt.Errorf("loading config: %w", err)
+		return path, config.DefaultConfig(), fmt.Errorf("loading config: %w", err)
 	}
 
-	return path, cfg, existed, nil
+	return path, cfg, nil
 }

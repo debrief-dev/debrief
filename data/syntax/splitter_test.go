@@ -209,3 +209,37 @@ func TestIsFunctionDefinitionEmptyInput(t *testing.T) {
 		t.Error("Expected false for empty input")
 	}
 }
+
+func TestIsLoopConstruct(t *testing.T) {
+	runBoolTests(t, "IsLoopConstruct", []boolTestCase{
+		// Bash/Zsh loops
+		{"bash for loop", "for i in 1 2 3; do echo $i; done", true},
+		{"bash while loop", "while true; do sleep 1; done", true},
+		{"bash until loop", "until false; do echo waiting; done", true},
+		{"bash select loop", "select opt in a b c; do echo $opt; done", true},
+		{"bash c-style for", "for (( i=0; i<10; i++ )); do echo $i; done", true},
+		{"bash loop with operators", "for i in 1 2; do echo $i && echo step; done", true},
+		{"incomplete bash loop", "for i in 1 2 3; do echo $i", false},
+		{"not a loop", "echo for while", false},
+		{"for without do", "for i in 1 2 3", false},
+
+		// PowerShell loops
+		{"powershell for loop", "for ($i=0; $i -lt 10; $i++) { Write-Host $i }", true},
+		{"powershell foreach", "foreach ($item in $list) { Write-Host $item }", true},
+		{"powershell while", "while ($true) { Start-Sleep 1 }", true},
+		{"powershell do-while", "do { Write-Host test } while ($true)", true},
+		{"powershell ForEach-Object excluded", "ForEach-Object { $_ }", false},
+		{"incomplete powershell loop", "for ($i=0; $i -lt 10; $i++) {", false},
+		{"powershell case insensitive", "For ($i=0; $i -lt 10; $i++) { Write-Host $i }", true},
+		{"powershell WHILE", "WHILE ($true) { Start-Sleep 1 }", true},
+
+		// Fish loops
+		{"fish for loop", "for x in 1 2 3; echo $x; end", true},
+		{"fish while loop", "while true; echo loop; end", true},
+		{"incomplete fish loop", "for x in 1 2 3; echo $x", false},
+
+		// Edge cases
+		{"empty input", "", false},
+		{"function not loop", "function foo() { echo bar; }", false},
+	}, IsLoopConstruct)
+}

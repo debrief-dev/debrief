@@ -49,6 +49,7 @@ func Enable() error {
     <key>ProgramArguments</key>
     <array>
         <string>` + escaped.String() + `</string>
+        <string>--hidden</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

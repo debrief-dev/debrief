@@ -20,7 +20,7 @@ func Build(commands []*model.CommandEntry) *model.PrefixTreeNode {
 	for _, cmd := range commands {
 		// Split once to detect operators; reuse result for compound commands
 		parts, operators := syntax.SplitAtOperatorsWithInfo(cmd.Command)
-		if len(operators) > 0 && !syntax.IsFunctionDefinition(cmd.Command) {
+		if len(operators) > 0 && !syntax.IsFunctionDefinition(cmd.Command) && !syntax.IsLoopConstruct(cmd.Command) {
 			// Insert compound command with special operator handling
 			insertCompoundCommand(root, cmd, parts, operators)
 		} else {
