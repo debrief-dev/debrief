@@ -26,7 +26,7 @@ import (
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/data/model"
 	"github.com/debrief-dev/debrief/data/shell"
-	"github.com/debrief-dev/debrief/font"
+	"github.com/debrief-dev/debrief/ui/font"
 	"github.com/debrief-dev/debrief/infra/autostart"
 	"github.com/debrief-dev/debrief/infra/config"
 	"github.com/debrief-dev/debrief/infra/hotkey"
