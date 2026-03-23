@@ -30,6 +30,7 @@ import (
 	"github.com/debrief-dev/debrief/infra/autostart"
 	"github.com/debrief-dev/debrief/infra/config"
 	"github.com/debrief-dev/debrief/infra/hotkey"
+	"github.com/debrief-dev/debrief/infra/instance"
 	"github.com/debrief-dev/debrief/infra/platform"
 	"github.com/debrief-dev/debrief/infra/tray"
 	"github.com/debrief-dev/debrief/infra/window"
@@ -80,6 +81,17 @@ func main() {
 		log.Printf("Debrief started - version %s", config.AppVersion)
 	}
 
+	// Create window signal channel for communication between tray/hotkey and window
+	// receiver drains faster than human can produce signals - 1 is sufficient
+	windowSignalChan := make(chan string, 1)
+
+	// Single-instance check: if another instance is running, signal it to show and exit.
+	acquired, cleanupInstance := instance.TryAcquire(windowSignalChan)
+	if !acquired {
+		log.Println("Another instance is already running; signaled it to show. Exiting.")
+		os.Exit(0)
+	}
+
 	// Start pprof server for profiling (only when --pprof flag is passed)
 	if *pprofEnabled {
 		go func() {
@@ -90,10 +102,6 @@ func main() {
 			}
 		}()
 	}
-
-	// Create window signal channel for communication between tray/hotkey and window
-	// receiver drains faster than human can produce signals - 1 is sufficient
-	windowSignalChan := make(chan string, 1)
 
 	// Quit signal - only true when explicitly quitting from tray
 	shouldQuit := make(chan bool, 1)
@@ -214,6 +222,11 @@ func main() {
 	isFirstWindow := true
 
 	quitApp := func() {
+		// Clean up single-instance socket before exiting.
+		if cleanupInstance != nil {
+			cleanupInstance()
+		}
+
 		// os.Exit does not run deferred functions, so flush the log file
 		// explicitly to avoid losing buffered entries.
 		if logFile != nil {
