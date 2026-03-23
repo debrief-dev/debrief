@@ -26,7 +26,6 @@ import (
 	appstate "github.com/debrief-dev/debrief/app"
 	"github.com/debrief-dev/debrief/data/model"
 	"github.com/debrief-dev/debrief/data/shell"
-	"github.com/debrief-dev/debrief/font"
 	"github.com/debrief-dev/debrief/infra/autostart"
 	"github.com/debrief-dev/debrief/infra/config"
 	"github.com/debrief-dev/debrief/infra/hotkey"
@@ -35,6 +34,7 @@ import (
 	"github.com/debrief-dev/debrief/infra/tray"
 	"github.com/debrief-dev/debrief/infra/window"
 	"github.com/debrief-dev/debrief/ui"
+	"github.com/debrief-dev/debrief/ui/font"
 )
 
 // Window lifecycle coordination channels

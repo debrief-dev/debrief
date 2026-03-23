@@ -25,13 +25,19 @@ golangci-lint run --fix
 
 ## Architecture
 
-Dependencies point downward: Application → Infrastructure → Domain. Exception is `data/shell` → `infra/platform` for OS detection.
 
 ```
+Dependencies point downward: 
+  Application → Infrastructure → Domain. 
+
+Exception is `data/shell` → `infra/platform` for OS detection.
+
+
 Application Layer:
   main.go       -> lifecycle
   app/          -> application state
   ui/           -> immediate-mode GUI rendering
+    font/       -> embedded font assets
 
   Infrastructure Layer:
   infra/
@@ -57,4 +63,4 @@ Copyright © 2026 bosiakov
 
 Licensed under MIT (see [LICENSE](LICENSE)).
 
-The font `font/FiraCode-Regular.ttf` is licensed under the OFL-1.1. See [font/LICENSE](font/LICENSE) for details.
+The font `ui/font/FiraCode-Regular.ttf` is licensed under the OFL-1.1. See [ui/font/LICENSE](ui/font/LICENSE) for details.
