@@ -89,7 +89,7 @@ func main() {
 	acquired, cleanupInstance := instance.TryAcquire(windowSignalChan)
 	if !acquired {
 		log.Println("Another instance is already running; signaled it to show. Exiting.")
-		os.Exit(0)
+		return
 	}
 
 	// Start pprof server for profiling (only when --pprof flag is passed)

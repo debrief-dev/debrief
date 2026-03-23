@@ -6,9 +6,13 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/debrief-dev/debrief/infra/config"
 )
+
+// connTimeout bounds how long an accepted or dialed connection may be idle.
+const connTimeout = 2 * time.Second
 
 // TryAcquire attempts to become the single running instance.
 // If another instance is already listening, it sends a "show" command and
@@ -81,6 +85,11 @@ func handleConn(conn net.Conn, windowSignalChan chan<- string) {
 		}
 	}()
 
+	if err := conn.SetDeadline(time.Now().Add(connTimeout)); err != nil {
+		log.Printf("instance: failed to set connection deadline: %v", err)
+		return
+	}
+
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
 		cmd := strings.TrimSpace(scanner.Text())
@@ -97,7 +106,9 @@ func handleConn(conn net.Conn, windowSignalChan chan<- string) {
 // sendShow tries to connect to an existing instance and send a "show" command.
 // Returns true if the command was delivered successfully.
 func sendShow(network, path string) bool {
-	conn, err := net.Dial(network, path) //nolint:noctx // one-shot connection, no cancellation needed
+	dialer := net.Dialer{Timeout: connTimeout}
+
+	conn, err := dialer.Dial(network, path) //nolint:noctx // one-shot connection, no cancellation needed
 	if err != nil {
 		return false
 	}
@@ -107,6 +118,11 @@ func sendShow(network, path string) bool {
 			log.Printf("instance: failed to close connection: %v", err)
 		}
 	}()
+
+	if err := conn.SetDeadline(time.Now().Add(connTimeout)); err != nil {
+		log.Printf("instance: failed to set write deadline: %v", err)
+		return false
+	}
 
 	_, err = conn.Write([]byte("show\n"))
 
