@@ -1,8 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
+SUPERCOMPRESS=false
+if [ "${1:-}" = "--supercompress" ]; then
+  SUPERCOMPRESS=true
+  shift
+fi
+
 if [ $# -lt 1 ]; then
-  echo "Usage: $0 <video1> <video2> [video3 ...]"
+  echo "Usage: $0 [--supercompress] <video1> <video2> [video3 ...]"
   exit 1
 fi
 
@@ -14,6 +20,14 @@ WEBM_OUT="$SCRIPT_DIR/demo.webm"
 
 # Crop to app window (detected from frame analysis)
 CROP="crop=1618:1218:10:2"
+
+if [ "$SUPERCOMPRESS" = true ]; then
+  GIF_SCALE=""
+  GIF_LOSSY=100
+else
+  GIF_SCALE=""
+  GIF_LOSSY=80
+fi
 
 # Create concat list from arguments
 CONCAT_LIST=$(mktemp /tmp/concat_XXXXXX.txt)
@@ -34,14 +48,17 @@ ffmpeg -y -f concat -safe 0 -i "$CONCAT_LIST" \
 echo "==> Creating GIF (palette pass)..."
 ffmpeg -y -f concat -safe 0 -i "$CONCAT_LIST" \
   -an \
-  -vf "$CROP,scale=809:609,fps=15,palettegen=stats_mode=diff" \
+  -vf "${CROP}${GIF_SCALE},fps=20,palettegen=stats_mode=full:max_colors=128" \
   "$PALETTE"
 
 echo "==> Creating GIF (render pass)..."
 ffmpeg -y -f concat -safe 0 -i "$CONCAT_LIST" -i "$PALETTE" \
   -an \
-  -filter_complex "[0:v]${CROP},scale=809:609,fps=15[v];[v][1:v]paletteuse=dither=bayer:bayer_scale=5" \
+  -filter_complex "[0:v]${CROP}${GIF_SCALE},fps=20[v];[v][1:v]paletteuse=dither=floyd_steinberg" \
   "$GIF_OUT"
+
+echo "==> Optimizing GIF with gifsicle..."
+gifsicle -O3 --lossy=$GIF_LOSSY "$GIF_OUT" -o "$GIF_OUT"
 
 echo "==> Done!"
 ls -lh "$GIF_OUT" "$WEBM_OUT"
