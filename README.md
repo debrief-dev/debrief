@@ -19,7 +19,7 @@ Available on macOS, Windows, and Linux.
 * Lightweight, offline, open source - no telemetry, no internet required.
 
 <p>
-  <img src="assets/demo.gif" alt="Debrief Demo" width="800">
+  <img src="assets/demo.gif" alt="Debrief Demo" width="600">
 </p>
 
 ## Download
