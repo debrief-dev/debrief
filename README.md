@@ -7,7 +7,7 @@
 
 # Debrief
 
-A hyper-charged reverse search: browse shell history in a GUI app available system-wide. 
+A hyper-charged reverse search: browse shell history in a GUI app available system-wide via Ctrl+Shift+H. 
 
 Available on macOS, Windows, and Linux.
 
