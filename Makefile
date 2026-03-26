@@ -188,17 +188,17 @@ build_linux: build_linux_binary
 .PHONY: build_deb
 build_deb: build_linux_binary
 	@echo "Building deb $(LINUX_ARCH) package..."
-	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --packager deb --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).deb
+	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --config assets/nfpm.yaml --packager deb --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).deb
 
 .PHONY: build_rpm
 build_rpm: build_linux_binary
 	@echo "Building rpm $(LINUX_ARCH) package..."
-	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --packager rpm --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).rpm
+	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --config assets/nfpm.yaml --packager rpm --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).rpm
 
 .PHONY: build_archlinux
 build_archlinux: build_linux_binary
 	@echo "Building Arch Linux $(LINUX_ARCH) package..."
-	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --packager archlinux --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).pkg.tar.zst
+	ARCH=$(LINUX_ARCH) VERSION=$(TAG_NAME:v%=%) nfpm package --config assets/nfpm.yaml --packager archlinux --target ./dist/${APP_NAME_LOWERCASE}-$(TAG_NAME)-$(LINUX_ARCH).pkg.tar.zst
 
 .PHONY: clean_linux
 clean_linux:
