@@ -645,6 +645,9 @@ func run(p *runParams) *savedUIState {
 			ResultChan:       make(chan appstate.HotkeyResult, 1),
 		},
 
+		SearchChan:     make(chan struct{}, 1), // Buffered(1): coalesces search requests
+		SearchShutdown: make(chan struct{}),    // Unbuffered: signal search worker to stop
+
 		ShellFilter: nil,                                // nil = show all shells
 		ShellBadges: make(map[string]*widget.Clickable), // Initialize badge widgets map
 
@@ -698,6 +701,7 @@ func run(p *runParams) *savedUIState {
 	// (StoreShutdown, TreeRebuildShutdown, StatsRebuildShutdown),
 	// so they stop cleanly when the window is closed.
 	ui.StartBackgroundParser(appState)
+	ui.StartSearchWorker(appState)
 	ui.StartTreeRebuildWorker(appState)
 	ui.StartStatsRebuildWorker(appState)
 
@@ -801,6 +805,7 @@ func run(p *runParams) *savedUIState {
 			appState.StoreMu.RUnlock()
 
 			// Signal rebuild workers to shutdown for this window cycle
+			close(appState.SearchShutdown)
 			close(appState.Tree.RebuildShutdown)
 			close(appState.Stats.RebuildShutdown)
 			close(appState.StoreShutdown)

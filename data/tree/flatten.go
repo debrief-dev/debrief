@@ -52,11 +52,14 @@ func FlattenForDisplay(
 		sourceMatchSet map[*model.PrefixTreeNode]bool
 	)
 
+	// Search match set: walk UP from each matching command's tree node via parent pointers.
+	// This is O(matches × depth) instead of O(total_tree_nodes), dramatically faster for
+	// search queries that match a small subset of commands.
 	if matchingCommands != nil {
-		searchMatchSet = make(map[*model.PrefixTreeNode]bool)
-		buildSearchMatchSet(root, matchingCommands, searchMatchSet)
+		searchMatchSet = buildSearchMatchSetFromCommands(matchingCommands)
 	}
 
+	// Source match set: uses full tree walk since shell filter typically matches most nodes.
 	if shellFilter != nil {
 		sourceMatchSet = make(map[*model.PrefixTreeNode]bool)
 		buildSourceMatchSet(root, shellFilter, sourceMatchSet)
@@ -148,15 +151,30 @@ func buildMatchSet(
 	return hasMatch
 }
 
-// buildSearchMatchSet pre-computes which nodes have matching commands (O(n) single pass)
-func buildSearchMatchSet(
-	node *model.PrefixTreeNode,
-	matchingCommands map[*model.CommandEntry]bool,
-	result map[*model.PrefixTreeNode]bool,
-) bool {
-	return buildMatchSet(node, func(cmd *model.CommandEntry) bool {
-		return matchingCommands[cmd]
-	}, result)
+// buildSearchMatchSetFromCommands builds the search match set by walking UP from
+// each matching command's tree node via parent pointers, marking all ancestors.
+// Complexity: O(matches × tree_depth) — dramatically faster than a full tree walk
+// when the match set is small relative to the total tree size.
+// Short-circuits when it hits an already-marked ancestor (common for commands sharing prefixes).
+func buildSearchMatchSetFromCommands(matchingCommands map[*model.CommandEntry]bool) map[*model.PrefixTreeNode]bool {
+	// Each matching command contributes itself + ~2 ancestors on average.
+	const estimatedAncestorsPerMatch = 3
+
+	result := make(map[*model.PrefixTreeNode]bool, len(matchingCommands)*estimatedAncestorsPerMatch)
+
+	for cmd := range matchingCommands {
+		node := cmd.TreeNode
+		for node != nil {
+			if result[node] {
+				break // ancestor already marked, all further ancestors are too
+			}
+
+			result[node] = true
+			node = node.Parent
+		}
+	}
+
+	return result
 }
 
 // buildSourceMatchSet pre-computes which nodes have commands matching shell filter (O(n) single pass)

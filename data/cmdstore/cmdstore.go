@@ -15,6 +15,7 @@ type CmdStore struct {
 	OrderedList    []*model.CommandEntry // Commands in order of first appearance
 	PrefixTree     *model.PrefixTreeNode // For hierarchical clustering
 	FuzzyIndex     *search.Index         // For fuzzy searching
+	treeNodesCount int                   // Cached count of prefix tree nodes (computed once at build time)
 	TotalCommands  int                   // [only for testing&debugging] Total commands parsed (including duplicates)
 	UniqueCommands int                   // [only for testing&debugging] Number of unique commands
 	mu             sync.RWMutex          // Thread-safe access
@@ -44,6 +45,7 @@ func (s *CmdStore) Load(commands []*model.CommandEntry) {
 	// Build indices
 	s.PrefixTree = tree.Build(s.OrderedList)
 	tree.PreSortChildren(s.PrefixTree)
+	s.treeNodesCount = countTreeNodes(s.PrefixTree)
 	s.FuzzyIndex = search.BuildIndex(s.OrderedList)
 }
 
@@ -113,11 +115,12 @@ func (s *CmdStore) AllCommands() []*model.CommandEntry {
 }
 
 // TreeNodesCount returns the total number of nodes in the prefix tree.
+// The count is cached at build time to avoid repeated O(n) tree traversals.
 func (s *CmdStore) TreeNodesCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return countTreeNodes(s.PrefixTree)
+	return s.treeNodesCount
 }
 
 func countTreeNodes(node *model.PrefixTreeNode) int {

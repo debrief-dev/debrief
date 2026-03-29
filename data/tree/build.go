@@ -40,6 +40,7 @@ func insertIntoTree(node *model.PrefixTreeNode, tokens []string, cmd *model.Comm
 	if len(tokens) == 0 {
 		node.TerminalCount++
 		node.Commands = append(node.Commands, cmd)
+		cmd.TreeNode = node
 
 		return
 	}
@@ -56,6 +57,7 @@ func insertIntoTree(node *model.PrefixTreeNode, tokens []string, cmd *model.Comm
 
 	current.TerminalCount++
 	current.Commands = append(current.Commands, cmd)
+	cmd.TreeNode = current
 }
 
 // SortNodesByCommandCount sorts nodes by command count (descending), then alphabetically for stable ordering
@@ -112,6 +114,7 @@ func getOrCreateChild(parent *model.PrefixTreeNode, token string, sb *strings.Bu
 			Word:     token,
 			FullPath: sb.String(),
 			Children: make(map[string]*model.PrefixTreeNode),
+			Parent:   parent,
 			Level:    parent.Level + 1,
 		}
 		parent.Children[token] = child
@@ -184,9 +187,11 @@ func insertPipelineStructure(root *model.PrefixTreeNode, parts []string, cmd *mo
 	if lastPipedChild != nil {
 		lastPipedChild.Commands = append(lastPipedChild.Commands, cmd)
 		lastPipedChild.TerminalCount++
+		cmd.TreeNode = lastPipedChild
 	} else {
 		currentNode.Commands = append(currentNode.Commands, cmd)
 		currentNode.TerminalCount++
+		cmd.TreeNode = currentNode
 	}
 }
 
@@ -233,4 +238,5 @@ func insertFlatStructure(root *model.PrefixTreeNode, parts []string, operators [
 	// Attach the command to the final leaf node
 	lastNode.Commands = append(lastNode.Commands, cmd)
 	lastNode.TerminalCount++
+	cmd.TreeNode = lastNode
 }

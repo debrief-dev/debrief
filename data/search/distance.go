@@ -20,8 +20,20 @@ func LevenshteinDistance(s1, s2 string) int {
 		s1, s2 = s2, s1
 	}
 
-	previous := make([]int, len(s1)+1)
-	current := make([]int, len(s1)+1)
+	// Stack-allocate for short strings to avoid heap allocations in the hot path.
+	// 128 covers commands up to 127 chars (the shorter of the two strings).
+	var (
+		prevBuf, curBuf   [128]int
+		previous, current []int
+	)
+
+	if len(s1)+1 <= len(prevBuf) {
+		previous = prevBuf[:len(s1)+1]
+		current = curBuf[:len(s1)+1]
+	} else {
+		previous = make([]int, len(s1)+1)
+		current = make([]int, len(s1)+1)
+	}
 
 	for i := range previous {
 		previous[i] = i
