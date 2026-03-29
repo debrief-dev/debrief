@@ -396,6 +396,7 @@ func computeTreeRebuild(
 func performSearch(state *appstate.State) {
 	// Snapshot inputs under brief RLock
 	state.StoreMu.RLock()
+
 	store := state.Store
 	if store == nil {
 		state.StoreMu.RUnlock()
