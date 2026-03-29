@@ -48,6 +48,27 @@ func Score(query string, cmd *model.CommandEntry) float64 {
 	queryLower := strings.ToLower(query)
 	cmdLower := strings.ToLower(cmd.Command)
 
+	// Fast path for short queries (1-2 chars): skip expensive Levenshtein and
+	// trigram computations. The similarity bonus is meaningless for very short
+	// queries (e.g., "g" vs "git commit -m fix" → similarity ≈ 0). Use only
+	// match type + frequency for ranking. This eliminates thousands of slice
+	// allocations (2 per Levenshtein call) that dominate the scoring hot path.
+	if len(queryLower) < MinStringLengthForTrigrams {
+		matchType, baseScore := determineMatchTypeShort(queryLower, cmdLower)
+		if matchType == NoMatch {
+			return 0.0
+		}
+
+		freqBonus := math.Min(math.Log(float64(cmd.Frequency+1))/FrequencyBonusDivisor, FrequencyBonusMax)
+		totalScore := baseScore + freqBonus
+
+		if totalScore < MinScoreThreshold {
+			return 0.0
+		}
+
+		return totalScore
+	}
+
 	// Step 1: Determine match type, base score, and pre-split words/parts
 	matchType, baseScore, words, wordParts := determineMatchType(queryLower, cmdLower)
 	if matchType == NoMatch {
@@ -100,6 +121,49 @@ func Score(query string, cmd *model.CommandEntry) float64 {
 	}
 
 	return totalScore
+}
+
+// isWordPartDelimiter reports whether ch is a word-part delimiter.
+// Matches the delimiters used by wordPartReplacer: space, '.', '/', '-', '_', ':'.
+func isWordPartDelimiter(ch byte) bool {
+	switch ch {
+	case ' ', '.', '/', '-', '_', ':':
+		return true
+	}
+
+	return false
+}
+
+// determineMatchTypeShort is a fast path for short queries (< 3 chars).
+// Avoids allocations from strings.Fields, splitWordParts, and Levenshtein.
+// Only checks prefix, word boundary, and substring matches — no fuzzy matching
+// since trigrams require 3+ chars and edit distance is meaningless for 1-2 chars.
+func determineMatchTypeShort(query, cmd string) (MatchType, float64) {
+	if query == cmd {
+		return ExactMatch, ScoreExactMatch
+	}
+
+	if strings.HasPrefix(cmd, query) {
+		return PrefixMatch, ScorePrefixMatch
+	}
+
+	// Check word boundaries without allocating a slice: scan for query preceded
+	// by start-of-string or delimiter, and followed by end-of-string or delimiter.
+	if idx := strings.Index(cmd, query); idx >= 0 {
+		// Check if it's a word match (at word boundary)
+		atStart := idx == 0 || isWordPartDelimiter(cmd[idx-1])
+		end := idx + len(query)
+		atEnd := end == len(cmd) || isWordPartDelimiter(cmd[end])
+
+		if atStart && atEnd {
+			return WordMatch, ScoreWordMatch
+		}
+
+		// It's at least a substring match
+		return SubstringMatch, ScoreSubstringMatch
+	}
+
+	return NoMatch, 0.0
 }
 
 // determineMatchType identifies how the query matches the command.

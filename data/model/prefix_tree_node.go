@@ -6,6 +6,7 @@ type PrefixTreeNode struct {
 	FullPath       string                     // Full command path to this node
 	Children       map[string]*PrefixTreeNode // Child nodes (next words)
 	SortedChildren []*PrefixTreeNode          // Pre-sorted children for rendering (sorted once at build time)
+	Parent         *PrefixTreeNode            // Parent node (nil for root); set during tree build
 	CommandCount   int                        // Total commands passing through this node
 	TerminalCount  int                        // Commands ending at this node
 	Commands       []*CommandEntry            // Commands that end here

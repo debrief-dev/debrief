@@ -153,18 +153,8 @@ func doBlockMatcher(word string) int {
 	}
 }
 
-// IsBalancedDoBlock checks if do/done keywords are balanced in a command,
-// respecting quotes. Used for bash/zsh loop constructs (for, while, until, select).
-// Keywords must appear at word boundaries to avoid matching "docker", "undone", etc.
-// Returns true when depth==0, including when no do/done keywords exist.
-func IsBalancedDoBlock(command string) bool {
-	depth, _ := scanKeywordBalance(command, doBlockMatcher)
-	return depth == 0
-}
-
 // HasBalancedDoBlock checks if a command has a complete, balanced do/done block.
-// Unlike IsBalancedDoBlock (which returns true when depth==0, including when no keywords exist),
-// this function returns true only when do/done keywords are present AND balanced.
+// Returns true only when do/done keywords are present AND balanced.
 // Used by shell parsers to determine if a loop construct is complete.
 func HasBalancedDoBlock(command string) bool {
 	depth, found := scanKeywordBalance(command, doBlockMatcher)

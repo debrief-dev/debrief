@@ -102,24 +102,6 @@ func TestBalancedBraces(t *testing.T) {
 	}
 }
 
-func TestIsBalancedDoBlock(t *testing.T) {
-	runBoolTests(t, "IsBalancedDoBlock", []boolTestCase{
-		{"balanced for loop", "for x in 1 2; do echo $x; done", true},
-		{"balanced while loop", "while true; do sleep 1; done", true},
-		{"unbalanced - missing done", "for x in 1 2; do echo $x", false},
-		{"unbalanced - extra done", "done", false},
-		{"nested loops", "for i in 1; do for j in 2; do echo; done; done", true},
-		{"no do/done at all", "echo hello", true},
-		{"do/done in quotes ignored", `echo "do something done"`, true},
-		{"docker not matched", "docker run nginx", true},
-		{"undone not matched", "echo undone", true},
-		{"dofile not matched", "dofile something", true},
-		{"do at end of string", "for x in 1; do", false},
-		{"done at start", "done; do echo; done", false},
-		{"empty input", "", true},
-	}, IsBalancedDoBlock)
-}
-
 func TestIsBalancedFishBlock(t *testing.T) {
 	runBoolTests(t, "IsBalancedFishBlock", []boolTestCase{
 		{"balanced for loop", "for x in 1 2; echo $x; end", true},

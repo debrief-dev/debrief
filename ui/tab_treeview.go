@@ -196,8 +196,14 @@ func renderTreeView(gtx C, app *appstate.State, theme *material.Theme) D {
 		selectedTreeNode = app.Tree.SelectedNode
 		app.StoreMu.Unlock()
 
+		needScrollToSel = true // Update local var so scroll runs in the SAME frame
 		app.NeedScrollToSel = true
+
 		app.Tree.NeedInitialSel = false
+	} else if app.Tree.NeedInitialSel {
+		if len(nodes) == 0 {
+			app.Tree.NeedInitialSel = false
+		}
 	}
 
 	// Handle empty state

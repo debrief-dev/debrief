@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image/color"
-	"log"
 
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
@@ -10,7 +9,6 @@ import (
 	"gioui.org/widget/material"
 
 	appstate "github.com/debrief-dev/debrief/app"
-	"github.com/debrief-dev/debrief/data/model"
 )
 
 func renderSearchInput(gtx C, app *appstate.State, theme *material.Theme) D {
@@ -71,7 +69,10 @@ func renderSearchInput(gtx C, app *appstate.State, theme *material.Theme) D {
 	return dims
 }
 
-// handleSearchInput handles changes to the search input
+// handleSearchInput handles changes to the search input.
+// Runs search + tree rebuild synchronously on the UI thread (~1-3ms) so that
+// renderTreeView (which runs later in the same frame) sees the results immediately.
+// This gives 0-frame latency — the user sees results on the same frame they type.
 //
 //nolint:dupl // selection-save blocks operate on different state (commands vs tree)
 func handleSearchInput(app *appstate.State) {
@@ -103,10 +104,6 @@ func handleSearchInput(app *appstate.State) {
 		// Reset command selection when user types (return to search mode)
 		app.Commands.SelectedIndex = -1 // UI-only state
 		app.NeedScrollToSel = false
-
-		// Don't clear tree selection here — it causes visible blinking because
-		// the tree rebuild is async. NeedInitialSel will overwrite the selection
-		// once the rebuild completes, providing a seamless transition.
 	}
 
 	// Always update current query
@@ -116,94 +113,17 @@ func handleSearchInput(app *appstate.State) {
 
 	// Only trigger search if query actually changed
 	if queryChanged {
-		// Execute search immediately
-		// Tree will be marked for rebuild when search completes
-		executeSearch(app, currentText)
+		// Run search + tree rebuild synchronously on the UI thread (~1-3ms).
+		// Gio's Flex lays out Rigid children (search bar) BEFORE Flexed children
+		// (tree view), so results computed here are visible to renderTreeView
+		// in the SAME frame — zero latency.
+		performSearch(app)
+
+		// Rebuild tree inline for same-frame display.
+		rebuildTree(app)
+
+		// Re-pin list to bottom (ScrollToEnd mode). Safe to write Position
+		// here because we're on the UI thread.
+		app.Commands.List.Position.BeforeEnd = false
 	}
-}
-
-// executeSearch performs the actual search
-func executeSearch(app *appstate.State, query string) {
-	app.StoreMu.Lock()
-
-	executeSearchLocked(app, query)
-	// Request async tree rebuild — must NOT be synchronous because renderSearchInput
-	// runs AFTER renderTreeView in the same frame. A sync rebuild would replace node
-	// pointers mid-frame, breaking Gio event target matching for clicks and hovers.
-	RequestTreeRebuild(app)
-
-	app.StoreMu.Unlock()
-
-	// Re-pin list to bottom (ScrollToEnd mode). Safe to write Position
-	// here because executeSearch is only called from the UI thread.
-	app.Commands.List.Position.BeforeEnd = false
-
-	app.Window.Invalidate()
-}
-
-// executeSearchLocked performs search (must be called with parserMu locked)
-func executeSearchLocked(app *appstate.State, query string) {
-	// Invalidate height caches when search query changes (different items displayed)
-	invalidateHeightCaches(app)
-
-	if query == "" {
-		// Empty search: show all loaded commands (respecting shell filter)
-		if app.ShellFilter != nil {
-			// Apply shell filter
-			filtered := make([]*model.CommandEntry, 0, len(app.Commands.LoadedCommands))
-
-			for _, cmd := range app.Commands.LoadedCommands {
-				if app.ShellFilter[cmd.Shell] {
-					filtered = append(filtered, cmd)
-				}
-			}
-
-			app.Commands.DisplayCommands = filtered
-		} else {
-			app.Commands.DisplayCommands = app.Commands.LoadedCommands
-		}
-
-		app.SearchMatchingCommands = nil
-		app.Commands.NeedInitialSel = true
-		app.Tree.NeedInitialSel = true
-
-		log.Printf("Search cleared, showing %d loaded commands", len(app.Commands.DisplayCommands))
-
-		return
-	}
-
-	if app.Store == nil {
-		return
-	}
-
-	// Perform fuzzy search
-	log.Printf("Executing search for query: '%s'", query)
-	results := app.Store.Search(query)
-
-	// Build matching commands map (for tree rebuild reuse) and DisplayCommands in one pass.
-	// results is sorted best-to-worst; DisplayCommands needs worst-to-best (best near search bar).
-	// Iterating in reverse gives the correct display order while populating the map.
-	matchingMap := make(map[*model.CommandEntry]bool, len(results))
-
-	display := make([]*model.CommandEntry, 0, len(results))
-	for i := len(results) - 1; i >= 0; i-- {
-		entry := results[i].Entry
-
-		matchingMap[entry] = true
-		if app.ShellFilter == nil || app.ShellFilter[entry.Shell] {
-			display = append(display, entry)
-		}
-	}
-
-	app.SearchMatchingCommands = matchingMap
-	app.Commands.DisplayCommands = display
-	log.Printf("Search completed - found %d matches", len(display))
-
-	// Auto-select the best match
-	if len(app.Commands.DisplayCommands) > 0 {
-		app.Commands.NeedInitialSel = true
-	}
-
-	// Also request initial selection for tree tab after search
-	app.Tree.NeedInitialSel = true
 }

@@ -181,6 +181,9 @@ type State struct {
 	// COPY-ON-WRITE: always assign a new map, never mutate.
 	// nil when query is empty or no search has been performed.
 	SearchMatchingCommands map[*model.CommandEntry]bool
+	// Search coordination: dedicated channel so search never blocks behind tree rebuilds.
+	SearchChan     chan struct{} // Buffered(1): coalesces search requests
+	SearchShutdown chan struct{} // Unbuffered: signal search worker to stop
 
 	// Protected by StoreMu
 	LoadError error
