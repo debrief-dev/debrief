@@ -5,11 +5,13 @@
 [![License](https://img.shields.io/github/license/debrief-dev/debrief)](LICENSE)
 [![Go](https://img.shields.io/github/go-mod/go-version/debrief-dev/debrief)](https://go.dev/)
 
-# Debrief
-
-A hyper-charged reverse search: browse shell history in a GUI app available system-wide via Ctrl+Shift+H. 
+Hyper-charged reverse search: a GUI shell history browser, available system-wide via Ctrl+Shift+H.
 
 Available on macOS, Windows, and Linux.
+
+<p>
+  <img src="assets/demo.gif" alt="Debrief Demo" width="600">
+</p>
 
 * No more pressing Ctrl+R 100 times — navigate visually.
 * Browse history as a list, explore as a tree, or see your most-used commands.
@@ -17,10 +19,6 @@ Available on macOS, Windows, and Linux.
 * Support bash, zsh, powershell. 
 * Find commands even with typos - fuzzy search support.
 * Lightweight, offline, open source - no telemetry, no internet required.
-
-<p>
-  <img src="assets/demo.gif" alt="Debrief Demo" width="600">
-</p>
 
 ## Download
 
