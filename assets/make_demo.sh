@@ -18,9 +18,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GIF_OUT="$SCRIPT_DIR/demo.gif"
 WEBM_OUT="$SCRIPT_DIR/demo.webm"
 
-# Crop to app window (detected from frame analysis)
-CROP="crop=1618:1218:10:2"
-
 if [ "$SUPERCOMPRESS" = true ]; then
   GIF_SCALE=""
   GIF_LOSSY=100
@@ -41,20 +38,20 @@ done
 echo "==> Creating WebM..."
 ffmpeg -y -f concat -safe 0 -i "$CONCAT_LIST" \
   -an \
-  -vf "$CROP,scale=809:609" \
+  -vf "scale=809:609" \
   -c:v libvpx-vp9 -crf 30 -b:v 0 \
   "$WEBM_OUT"
 
 echo "==> Creating GIF (palette pass)..."
 ffmpeg -y -f concat -safe 0 -i "$CONCAT_LIST" \
   -an \
-  -vf "${CROP}${GIF_SCALE},fps=20,palettegen=stats_mode=full:max_colors=128" \
+  -vf "fps=20,palettegen=stats_mode=full:max_colors=128" \
   "$PALETTE"
 
 echo "==> Creating GIF (render pass)..."
 ffmpeg -y -f concat -safe 0 -i "$CONCAT_LIST" -i "$PALETTE" \
   -an \
-  -filter_complex "[0:v]${CROP}${GIF_SCALE},fps=20[v];[v][1:v]paletteuse=dither=floyd_steinberg" \
+  -filter_complex "[0:v]fps=20[v];[v][1:v]paletteuse=dither=floyd_steinberg" \
   "$GIF_OUT"
 
 echo "==> Optimizing GIF with gifsicle..."
