@@ -71,12 +71,13 @@ func (s *ScannerState) Advance(ch byte) bool {
 		}
 
 		if !s.inSingleQuote && !s.inDoubleQuote {
-			if wasDollar && (ch == '(' || ch == '{') {
+			switch {
+			case wasDollar && (ch == '(' || ch == '{'):
 				// Nested $( or ${ — push a new frame.
 				s.pushSubFrame(ch)
-			} else if ch == top.openChar {
+			case ch == top.openChar:
 				top.depth++
-			} else if ch == top.closeChar {
+			case ch == top.closeChar:
 				if top.depth > 0 {
 					top.depth--
 				} else {
