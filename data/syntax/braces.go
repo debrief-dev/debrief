@@ -1,38 +1,151 @@
 package syntax
 
+// cmdSubFrame stores the state saved when entering a $(...) or ${...} substitution.
+type cmdSubFrame struct {
+	openChar         byte // '(' for $(...), '{' for ${...}
+	closeChar        byte // ')' for $(...), '}' for ${...}
+	depth            int  // nested open/close count within this level
+	savedDoubleQuote bool // inDoubleQuote at the moment the substitution was entered
+}
+
 // ScannerState tracks quote and escape state while scanning a command byte-by-byte.
 type ScannerState struct {
 	inSingleQuote bool
 	inDoubleQuote bool
 	escaped       bool
+	inBacktick    bool          // inside `...` command substitution
+	prevDollar    bool          // previous non-escaped char was $
+	cmdSubStack   []cmdSubFrame // $(...) and ${...} nesting stack
 }
 
 // Advance processes one byte and updates quote/escape state.
-// Returns true if the byte is "live" (outside quotes and not consumed by an escape sequence).
+// Returns true if the byte is "live" (outside quotes, command substitutions,
+// and not consumed by an escape sequence).
 // Quote characters and the backslash are consumed (return false) but callers that build
 // output strings must still WriteByte(ch) for those characters themselves.
 func (s *ScannerState) Advance(ch byte) bool {
 	if s.escaped {
 		s.escaped = false
+		s.prevDollar = false
+
 		return false // byte consumed by preceding backslash
 	}
 
+	wasDollar := s.prevDollar
+	s.prevDollar = false
+
 	if ch == '\\' && !s.inSingleQuote {
 		s.escaped = true
+
 		return false
 	}
 
+	// Backtick command substitution — toggle on ` outside single quotes.
+	if ch == '`' && !s.inSingleQuote {
+		s.inBacktick = !s.inBacktick
+
+		return false
+	}
+
+	// Inside backtick substitution — everything is non-live.
+	if s.inBacktick {
+		return false
+	}
+
+	// Inside a $(...) or ${...} substitution — track inner quotes and
+	// delimiters but always return false (non-live).
+	if len(s.cmdSubStack) > 0 {
+		top := &s.cmdSubStack[len(s.cmdSubStack)-1]
+
+		// Track quotes inside the substitution.
+		if ch == '\'' && !s.inDoubleQuote {
+			s.inSingleQuote = !s.inSingleQuote
+
+			return false
+		}
+
+		if ch == '"' && !s.inSingleQuote {
+			s.inDoubleQuote = !s.inDoubleQuote
+
+			return false
+		}
+
+		if !s.inSingleQuote && !s.inDoubleQuote {
+			if wasDollar && (ch == '(' || ch == '{') {
+				// Nested $( or ${ — push a new frame.
+				s.pushSubFrame(ch)
+			} else if ch == top.openChar {
+				top.depth++
+			} else if ch == top.closeChar {
+				if top.depth > 0 {
+					top.depth--
+				} else {
+					// Closing this substitution level — pop and restore state.
+					s.inDoubleQuote = top.savedDoubleQuote
+					s.cmdSubStack = s.cmdSubStack[:len(s.cmdSubStack)-1]
+				}
+			}
+
+			s.prevDollar = ch == '$'
+		}
+
+		return false
+	}
+
+	// Top-level quote handling.
 	if ch == '\'' && !s.inDoubleQuote {
 		s.inSingleQuote = !s.inSingleQuote
+
 		return false
 	}
 
 	if ch == '"' && !s.inSingleQuote {
 		s.inDoubleQuote = !s.inDoubleQuote
+
 		return false
 	}
 
-	return !s.inSingleQuote && !s.inDoubleQuote
+	// Inside quotes at the top level.
+	if s.inSingleQuote || s.inDoubleQuote {
+		// $( or ${ inside double quotes starts a substitution.
+		if s.inDoubleQuote && wasDollar && (ch == '(' || ch == '{') {
+			s.pushSubFrame(ch)
+
+			return false
+		}
+
+		if !s.inSingleQuote {
+			s.prevDollar = ch == '$'
+		}
+
+		return false
+	}
+
+	// Live context — check for $( or ${ to enter substitution.
+	if wasDollar && (ch == '(' || ch == '{') {
+		s.pushSubFrame(ch)
+
+		return false
+	}
+
+	s.prevDollar = ch == '$'
+
+	return true
+}
+
+// pushSubFrame pushes a new substitution frame for the given opening char ('(' or '{').
+func (s *ScannerState) pushSubFrame(openCh byte) {
+	closeCh := byte(')')
+	if openCh == '{' {
+		closeCh = '}'
+	}
+
+	s.cmdSubStack = append(s.cmdSubStack, cmdSubFrame{
+		openChar:         openCh,
+		closeChar:        closeCh,
+		savedDoubleQuote: s.inDoubleQuote,
+	})
+	s.inDoubleQuote = false
 }
 
 // IsBalancedBraces checks if braces are balanced in a command,

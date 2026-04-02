@@ -89,6 +89,56 @@ func TestTokenizeWithQuotes(t *testing.T) {
 			input:    `echo 'he said "hello"'`,
 			expected: []string{"echo", `'he said "hello"'`},
 		},
+		{
+			name:     "Command substitution kept as single token",
+			input:    "echo $(date)",
+			expected: []string{"echo", "$(date)"},
+		},
+		{
+			name:     "Command substitution with spaces inside",
+			input:    "echo $(echo hello | grep h)",
+			expected: []string{"echo", "$(echo hello | grep h)"},
+		},
+		{
+			name:     "Nested command substitution",
+			input:    "echo $(echo $(date))",
+			expected: []string{"echo", "$(echo $(date))"},
+		},
+		{
+			name:     "Command substitution as assignment prefix",
+			input:    "result=$(cmd) echo done",
+			expected: []string{"result=$(cmd)", "echo", "done"},
+		},
+		{
+			name:     "Arithmetic expansion kept as single token",
+			input:    "echo $((1+2))",
+			expected: []string{"echo", "$((1+2))"},
+		},
+		{
+			name:     "Command substitution inside double quotes",
+			input:    `echo "$(date)"`,
+			expected: []string{"echo", `"$(date)"`},
+		},
+		{
+			name:     "Dollar-paren inside single quotes is literal",
+			input:    `echo '$(date)'`,
+			expected: []string{"echo", `'$(date)'`},
+		},
+		{
+			name:     "Backtick substitution kept as single token",
+			input:    "echo `date -u`",
+			expected: []string{"echo", "`date -u`"},
+		},
+		{
+			name:     "Parameter expansion kept as single token",
+			input:    "echo ${var:-default value}",
+			expected: []string{"echo", "${var:-default value}"},
+		},
+		{
+			name:     "Parameter expansion without spaces",
+			input:    "echo ${HOME} done",
+			expected: []string{"echo", "${HOME}", "done"},
+		},
 	}
 
 	runTokenizeTests(t, tests, tokenizeWithQuotes)
