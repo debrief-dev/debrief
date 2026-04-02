@@ -178,6 +178,42 @@ func TestSplitAtOperatorsWithInfo(t *testing.T) {
 			name:  "Empty input",
 			input: "",
 		},
+		{
+			name:          "Operators inside command substitution ignored",
+			input:         "echo $(echo a && echo b) && echo c",
+			expectedParts: []string{"echo $(echo a && echo b)", "echo c"},
+			expectedOps:   []OperatorInfo{{Operator: opAnd, Position: 25}},
+		},
+		{
+			name:          "Pipe inside command substitution ignored",
+			input:         "echo $(cat file | grep pattern) | wc",
+			expectedParts: []string{"echo $(cat file | grep pattern)", "wc"},
+			expectedOps:   []OperatorInfo{{Operator: opPipe, Position: 32, IsPipe: true}},
+		},
+		{
+			name:          "Semicolon inside command substitution ignored",
+			input:         "echo $(echo a; echo b); echo c",
+			expectedParts: []string{"echo $(echo a; echo b)", "echo c"},
+			expectedOps:   []OperatorInfo{{Operator: opSemicolon, Position: 22}},
+		},
+		{
+			name:          "Operators inside backtick substitution ignored",
+			input:         "echo `a && b` && echo c",
+			expectedParts: []string{"echo `a && b`", "echo c"},
+			expectedOps:   []OperatorInfo{{Operator: opAnd, Position: 14}},
+		},
+		{
+			name:          "Pipe inside backtick substitution ignored",
+			input:         "echo `cat file | grep x` | wc",
+			expectedParts: []string{"echo `cat file | grep x`", "wc"},
+			expectedOps:   []OperatorInfo{{Operator: opPipe, Position: 25, IsPipe: true}},
+		},
+		{
+			name:          "Operators inside parameter expansion ignored",
+			input:         "echo ${var:-a && b} && echo c",
+			expectedParts: []string{"echo ${var:-a && b}", "echo c"},
+			expectedOps:   []OperatorInfo{{Operator: opAnd, Position: 20}},
+		},
 	}
 
 	for _, tt := range tests {

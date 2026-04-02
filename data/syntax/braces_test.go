@@ -59,6 +59,122 @@ func TestScannerStateAdvance(t *testing.T) {
 			input:    `'\\'`,
 			wantLive: []bool{false, false, false, false},
 		},
+		{
+			name: "Command substitution $(cmd)",
+			//           $ (  c  m  d  )
+			input:    "$(cmd)",
+			wantLive: []bool{true, false, false, false, false, false},
+		},
+		{
+			name: "Command substitution with operators $(a && b)",
+			//           $ (  a     &  &     b  )
+			input:    "$(a && b)",
+			wantLive: []bool{true, false, false, false, false, false, false, false, false},
+		},
+		{
+			name: "Nested command substitution $(echo $(date))",
+			//           $ (  e  c  h  o     $ (  d  a  t  e  )  )
+			input:    "$(echo $(date))",
+			wantLive: []bool{true, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+		},
+		{
+			name: "Command sub inside double quotes",
+			//           "      $  (  c  m  d  )  "
+			input:    `"$(cmd)"`,
+			wantLive: []bool{false, false, false, false, false, false, false, false},
+		},
+		{
+			name: "Dollar-paren inside single quotes is literal",
+			//           '      $  (  c  m  d  )  '
+			input:    `'$(cmd)'`,
+			wantLive: []bool{false, false, false, false, false, false, false, false},
+		},
+		{
+			name: "Arithmetic expansion $((1+2))",
+			//           $ (  (  1  +  2  )  )
+			input:    "$((1+2))",
+			wantLive: []bool{true, false, false, false, false, false, false, false},
+		},
+		{
+			name: "Escaped dollar prevents substitution",
+			//           \  $  (  c  m  d  )
+			input:    `\$(cmd)`,
+			wantLive: []bool{false, false, true, true, true, true, true},
+		},
+		{
+			name: "After substitution closes chars are live",
+			//           $ (  c  )     r
+			input:    "$(c) r",
+			wantLive: []bool{true, false, false, false, true, true},
+		},
+		{
+			name: "Quoted close paren inside substitution",
+			//           $ (  e  c  h  o     "     )     "     )
+			input:    `$(echo ")")`,
+			wantLive: []bool{true, false, false, false, false, false, false, false, false, false, false},
+		},
+		// Backtick command substitution tests.
+		{
+			name: "Backtick substitution",
+			//           `  c  m  d  `
+			input:    "`cmd`",
+			wantLive: []bool{false, false, false, false, false},
+		},
+		{
+			name: "Backtick with operators inside",
+			//           e  c  h  o     `  a     &  &     b  `
+			input:    "echo `a && b`",
+			wantLive: []bool{true, true, true, true, true, false, false, false, false, false, false, false, false},
+		},
+		{
+			name: "Backtick inside double quotes",
+			//           "     `  c  m  d  `     "
+			input:    "\"`cmd`\"",
+			wantLive: []bool{false, false, false, false, false, false, false},
+		},
+		{
+			name:  "Escaped backtick is literal",
+			input: "\\`cmd\\`",
+			//           \  `  c  m  d  \  `
+			wantLive: []bool{false, false, true, true, true, false, false},
+		},
+		{
+			name: "After backtick closes chars are live",
+			//           `  c  `     r
+			input:    "`c` r",
+			wantLive: []bool{false, false, false, true, true},
+		},
+		// ${...} parameter expansion tests.
+		{
+			name: "Parameter expansion ${var}",
+			//           $ {  v  a  r  }
+			input:    "${var}",
+			wantLive: []bool{true, false, false, false, false, false},
+		},
+		{
+			name: "Parameter expansion with default ${var:-default}",
+			//           $ {  v  a  r  :  -  d  e  f  a  u  l  t  }
+			input:    "${var:-default}",
+			wantLive: []bool{true, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+		},
+		{
+			name: "Nested $() inside ${}",
+			//           $ {  v  a  r  :  -  $ (  c  m  d  )  }
+			input:    "${var:-$(cmd)}",
+			wantLive: []bool{true, false, false, false, false, false, false, false, false, false, false, false, false, false},
+		},
+		{
+			name: "After ${} closes chars are live",
+			//           $ {  v  }     r
+			input:    "${v} r",
+			wantLive: []bool{true, false, false, false, true, true},
+		},
+		{
+			name: "${} inside double quotes",
+			//           "     $ {  v  }     "
+			input:    `"${v}"`,
+			wantLive: []bool{false, false, false, false, false, false},
+		},
 	}
 
 	for _, tt := range tests {
