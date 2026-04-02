@@ -191,12 +191,20 @@ func renderTreeView(gtx C, app *appstate.State, theme *material.Theme) D {
 		if targetIndex < len(app.Tree.Nodes) {
 			app.Tree.SelectedNode = targetIndex
 			app.Tree.SelectedNodePath = ""
+
+			// Directly position list to show the selected item.
+			// Height caches are empty after tree rebuild, so
+			// calculateSmartScrollPositionVariable would use inaccurate
+			// fallback heights. Place the item a few rows from the top.
+			first := max(targetIndex-treeRestoreContextRows, 0)
+			app.Tree.List.Position.First = first
+			app.Tree.List.Position.Offset = 0
 		}
 
 		selectedTreeNode = app.Tree.SelectedNode
 		app.StoreMu.Unlock()
 
-		needScrollToSel = true // Update local var so scroll runs in the SAME frame
+		needScrollToSel = true
 		app.NeedScrollToSel = true
 
 		app.Tree.NeedInitialSel = false
