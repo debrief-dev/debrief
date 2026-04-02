@@ -25,8 +25,8 @@ Available on macOS, Windows, and Linux.
 | Platform | AMD64 | ARM64 |
 |----------|-------|-------|
 | **macOS** | [DMG (amd64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-macos-1.0.0-amd64.dmg) | [DMG (arm64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-macos-1.0.0-arm64.dmg) |
-| **Windows (installer)** | [MSI (amd64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-windows-1.0.0-amd64.msi) | [MSI (arm64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-windows-1.0.0-arm64.msi) |
-| **Windows (portable)** | [EXE (amd64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-windows-1.0.0-amd64.exe) | [EXE (arm64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-windows-1.0.0-arm64.exe) |
+| **Windows (installer)** | [MSI (amd64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-windows-installer-1.0.0-amd64.msi) | [MSI (arm64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-windows-installer-1.0.0-arm64.msi) |
+| **Windows (portable)** | [EXE (amd64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-windows-portable-1.0.0-amd64.exe) | [EXE (arm64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-windows-portable-1.0.0-arm64.exe) |
 | **Ubuntu / Debian** | [DEB (amd64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-1.0.0-amd64.deb) | [DEB (arm64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-1.0.0-arm64.deb) |
 | **Fedora / RHEL** | [RPM (amd64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-1.0.0-amd64.rpm) | [RPM (arm64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-1.0.0-arm64.rpm) |
 | **Arch Linux** | [PKG (amd64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-1.0.0-amd64.pkg.tar.zst) | [PKG (arm64)](https://github.com/debrief-dev/debrief/releases/download/1.0.0/debrief-1.0.0-arm64.pkg.tar.zst) |

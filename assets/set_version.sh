@@ -15,7 +15,7 @@ README="$SCRIPT_DIR/../README.md"
 sed -i '' "s|releases/download/[^/]*/|releases/download/${VERSION}/|g" "$README"
 
 # Update version in filenames: debrief-<platform>-<old_version>-<arch> -> debrief-<platform>-<new>-<arch>
-sed -i '' "s|debrief-\([a-z]*\)-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*-|debrief-\1-${VERSION}-|g" "$README"
+sed -i '' "s|debrief-\([a-z-]*\)[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*-|debrief-\1${VERSION}-|g" "$README"
 
 echo "Updated README.md links to version ${VERSION}"
 grep -o 'releases/download/[^)]*' "$README" | head -3
