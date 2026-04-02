@@ -266,7 +266,7 @@ func renderFullCommandText(gtx C, theme *material.Theme, pathPrefix, currentWord
 	// Render using horizontal flex with two labels
 	return layout.Flex{
 		Axis:      layout.Horizontal,
-		Alignment: layout.Baseline,
+		Alignment: layout.Start,
 	}.Layout(gtx,
 		// Gray prefix (if exists) - includes trailing space
 		layout.Rigid(func(gtx C) D {
